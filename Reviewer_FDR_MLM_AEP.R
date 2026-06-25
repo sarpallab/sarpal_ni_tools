@@ -13,7 +13,10 @@ library(emmeans)
 library(DescTools)
 library(ggrepel)
 
-reload = T
+reload = F
+# same as reload, but loads in non gam-adjusted metabolites, can merge with reload df manually
+# also does group analyses with non-gam-adjusted metabolites
+reload_check_GM = T
 longitudinal = F
 group = F
 hilowdoi = F
@@ -29,10 +32,192 @@ handedness_group = F
 # In addition, please provide a more conservative sensitivity analysis in which FDR correction 
 # includes all ROI-by-metabolite tests within each type of analysis, and report whether the main findings remain significant.
 
-if (reload==T){
+# macbook
+setwd('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
+# macmini
+#setwd('/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
+
+if (reload_check_GM==T){
   
-  #setwd('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
-  setwd('/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
+  #read in ALL corrected data (including duplicates)
+  #isolate patients with baseline and follow-up only (ie only patients with known remitter status)
+  sarpal_data_all <- read_csv('sarpal_mrsi_adj_all_20250310.csv') %>%
+    filter(source %in% c('BL.FU','DARES.baselines')) %>% group_by(RECID,timepoint,hemi,roi) %>% slice(1) %>% ungroup()
+  
+  #add in sex from outside spreadsheet
+  # 2026-06-02 AndyP changed to sheet 3 was reading incorrect sheet
+  sarpal_data_supplemental <- read_excel('7T.DARES.baselines.xlsx', sheet = 3) %>% group_by(RECID) %>% slice(1) %>% ungroup()
+  
+  df <- inner_join(sarpal_data_all,sarpal_data_supplemental,by='RECID')
+  
+  df <- df %>% mutate(sex = as.factor(case_when(sex == 1 ~ 'M',
+                                                sex == 2 ~ 'F')))
+  
+  
+  ############################
+  #add in remitter status from outside spreadsheet
+  supplemental_data2 <- read_excel('BPRS_items_MIKE.xlsx')
+  supplemental_data2 <- supplemental_data2 %>% filter(Timepoint != 0)
+  supplemental_data2 <- supplemental_data2 %>%
+    mutate(Remitter_Status = ifelse(CONCDIS4 <= 3 & HALL12 <= 3 & UTC15 <= 3, "R", "NR"), timepoint = Timepoint)
+  supplemental_data2 <- supplemental_data2 %>% select(RECID,POSSX,Remitter_Status, timepoint)
+  supplemental_dataBL <- read_excel('BPRS_items_MIKE.xlsx')
+  supplemental_dataBL <- supplemental_dataBL %>% filter(Timepoint == 0) %>% mutate(timepoint = Timepoint, Remitter_Status = NA)
+  supplemental_dataBL <- supplemental_dataBL %>% select(RECID, POSSX,timepoint,Remitter_Status)
+  supplemental_data2 <- rbind(supplemental_data2, supplemental_dataBL)
+  supplemental_data2 <- supplemental_data2 %>% group_by(RECID) %>% tidyr::fill(Remitter_Status, .direction = "downup") %>% ungroup() %>% mutate(timepoint = case_when(timepoint == 0 ~ 1,
+                                                                                                                                                                      timepoint > 0 ~ 2))
+  # sarpal_data_BLFU <- sarpal_data_BLFU %>% 
+  #   mutate(Remitter_Status = supplemental_data2$Remitter_Status[match(RECID,supplemental_data2$RECID)])
+  
+  df <- left_join(df,supplemental_data2,by=c('RECID','timepoint'))
+  df <- df %>% mutate(timepoint = case_when(timepoint == 1 ~ 'BL',
+                                            timepoint == 2 ~ 'FU'))
+  
+  df$doi_m <- df$`DUP (months)`
+  # note Cr_gamadj is Metabolite / Creatine NOT raw Creatine metabolite.
+  # The adjustment is based on the length of the scan and was done for luna lab and Sarpal lab.
+  load('luna_data.Rdata')
+  #get rid of unimportant columns for our immediate analysis to allow for wide pivot
+  luna_data <- luna_data[, c("met", "ld8", "region", "age", "GMrat","Cr")]
+  #pivot wide for easy comparison with other spreadsheet
+  luna_data <- luna_data %>%
+    pivot_wider(names_from = met, values_from = Cr)
+  luna_data <- luna_data %>%
+    separate(ld8, into = c("lunaid", "date"), sep = "_")
+  luna_data$lunaid <- as.numeric(luna_data$lunaid)
+  luna_data <- luna_data %>% filter(age >= 18)
+  luna_data <- luna_data %>% dplyr::rename(GPC0 = 'GPC',Glu0 = 'Glu',GPC.Cho0 = 'GPC.Cho',Glc0 = 'Glc',GABA0 = 'GABA',NAA0 = 'NAA',mI0 = 'mI',Gln0 = 'Gln',NAAG0 = 'NAAG',Glu.Gln0 = 'Glu.Gln')
+  
+  #add in sex from outside spreadsheet
+  luna_data_supplemental <- read_csv('luna7t_sifpc_subset.csv')
+  luna_data_supplemental <- luna_data_supplemental %>% dplyr::select(lunaid,sex) %>% group_by(lunaid) %>% slice(1)
+  
+  luna_data <- inner_join(luna_data,luna_data_supplemental,by=c("lunaid"))
+  
+  luna_data <- luna_data %>%
+    mutate(date = as.numeric(date)) %>%
+    arrange(region, lunaid, date) %>%
+    group_by(region, lunaid) %>%
+    filter(region %in% c('RCaudate','LCaudate','RThalamus')) %>%
+    ungroup()
+  
+  luna_data <- luna_data %>%
+    filter(!lunaid %in% c(11690, 11665))
+  
+  luna_data <- luna_data %>% group_by(lunaid,region) %>% mutate(nsess = 1:n()) %>% ungroup() %>% filter(nsess == 1)
+  
+  # wrangling
+  df <- df %>% dplyr::select(RECID,hemi,doi_m,timepoint,age,GMrat,GPC,sex,roi,Glc,Glu,GPC.Cho,GABA,NAA,mI,Gln,NAAG,POSSX,Remitter_Status,Glu.Gln)
+  luna_data <- luna_data %>% dplyr::select(lunaid,region,age,GMrat,GABA0,Glc0,Gln0,Glu0,mI0,NAA0,NAAG0,GPC.Cho0,GPC0,Glu.Gln0,sex)
+  luna_data <- luna_data %>% mutate(group = 'HC', POSSX = NA, timepoint = 'BL')
+  df <- df %>% dplyr::rename(id = 'RECID',GPC0 = 'GPC',Glu0 = 'Glu',GPC.Cho0 = 'GPC.Cho',Glc0 = 'Glc',GABA0 = 'GABA',NAA0 = 'NAA',mI0 = 'mI',Gln0 = 'Gln',NAAG0 = 'NAAG',Glu.Gln0 = 'Glu.Gln')
+  luna_data <- luna_data %>% mutate(hemi = str_sub(region,1,1),
+                                    roi = str_sub(region,2))
+  luna_data <- luna_data %>% dplyr::select(!region)
+  df <- df %>% dplyr::rename(group = "Remitter_Status")
+  
+  # merge
+  luna_data <- luna_data %>% mutate(doi_m = NA) %>% rename(id = lunaid)
+  df <- rbind(df,luna_data)
+  df <- df %>% filter(roi %in% c('Caudate','Thalamus'))
+  
+  df$group <- relevel(factor(df$group), ref = "HC")
+  df$timepoint <- relevel(factor(df$timepoint), ref = "BL")
+  df$sex <- relevel(factor(df$sex),ref = "F")
+  df <- df %>% mutate(age_sc = scale(age))
+  
+  df <- df %>%
+    mutate(
+      # Combine Group and Time into 3 valid conditions
+      condition = case_when(
+        group == "HC" ~ "HC_BL",
+        group == "NR" & timepoint == "BL"  ~ "NR_BL",
+        group == "NR" & timepoint == "FU"  ~ "NR_FU",
+        group == "R" & timepoint == "BL"  ~ "R_BL",
+        group == "R" & timepoint == "FU"  ~ "R_FU",      
+      ),
+      condition = factor(condition, levels = c("HC_BL", "NR_BL", "R_BL", "NR_FU","R_FU"))
+    )
+  
+  df$condition <- relevel(df$condition, ref = "HC_BL")
+  
+  df <- df %>% mutate(group_level = case_when(group == 'HC' ~ 'HC',
+                                              group == 'NR' ~ 'SZ',
+                                              group == 'R' ~ 'SZ',
+                                              is.na(group) ~ 'SZ')
+  )
+  df$group_level <- relevel(as.factor(df$group_level),'HC')
+  
+  
+  
+  lthal <- read_csv('L_Thalamus_HC_gamadj_long.csv')
+  lthal <- lthal %>% rename(id = ld8) %>%
+    mutate(doi_m = NA, hemi = 'L', timepoint = 'BL',roi = "Thalamus") %>% select("roi","doi_m","timepoint","id","hemi","age","GMrat","sex","Glu.Cr","Gln.Cr","GABA.Cr","GPC.Cr","NAA.Cr","NAAG.Cr","mI.Cr","Glu.Gln.Cr")
+  lthal <- lthal %>% mutate(group = 'HC',condition = "HC_BL",group_level = "HC", POSSX = NA, GPC.Cho0 = NA, Glc0 = NA)
+  lthal <- lthal %>% rename(GPC0 = "GPC.Cr",Glu0 = "Glu.Cr",Gln0 = "Gln.Cr",mI0 = "mI.Cr",GABA0 = "GABA.Cr",NAAG0 = "NAAG.Cr",NAA0 = "NAA.Cr",Glu.Gln0 = "Glu.Gln.Cr")
+  lthal <- lthal %>% mutate(id = str_replace(id, "_[^_]*$", ""))
+  
+  df <- df %>% select(!age_sc)
+  df <- rbind(df,lthal)  
+  df <- df %>% mutate(age_sc = scale(age))
+  df0 <- df %>% group_by(id) %>% slice(1) %>% ungroup()
+  mDOI <- median(df0$doi_m[df0$group_level == 'SZ'],na.rm=TRUE)
+  df <- df %>% mutate(median_split_doi = case_when(doi_m >= mDOI ~ 'high',
+                                                   doi_m < mDOI ~ 'low')
+  )
+  df$median_split_doi[df$id == "2695"] = 'low'
+  
+  
+  rthal <- read_csv('New_R_Thalamus_gamadj_long.csv') %>% select(!GABA.Cr_gamadj & !Gln.Cr_gamadj & !Glu.Cr_gamadj & !GPC.Cr_gamadj & !mI.Cr_gamadj & !NAA.Cr_gamadj & !NAAG.Cr_gamadj & !Glu.Gln.Cr_gamadj) %>% rename(GPC0 = "GPC.Cr",Glu0 = "Glu.Cr",Gln0 = "Gln.Cr",mI0 = "mI.Cr",GABA0 = "GABA.Cr",NAAG0 = "NAAG.Cr",NAA0 = "NAA.Cr",Glu.Gln0 = "Glu.Gln.Cr")
+  rthal <- rthal %>% rename(id = RECID) %>%
+    mutate(hemi = 'R', timepoint = 'BL',roi = "Thalamus") %>% select("age","GMrat","roi","timepoint","id","hemi","Glu.Gln0","NAA0","NAAG0","GABA0","mI0","Gln0","Glu0","GPC0")
+  #rthal <- rthal %>% rename(SD_GABA = GABA.SD,SD_Glc = Glc.SD,SD_Gln = Gln.SD,SD_Glu = Glu.SD,SD_mI = mI.SD,SD_NAA = NAA.SD,SD_NAAG = NAAG.SD,SD_GPC.Cho = GPC.Cho.SD,SD_GPC = GPC.SD,SD_Glu.Gln = Glu.Gln.SD)
+  #rthal <- rthal %>% select(!SD_Cre) #rename(SD_Cre = "Cre.SD")
+  rthal <- rthal %>% mutate(id = str_replace(id, "_[^_]*$", ""))
+  rthal <- rthal %>% mutate(doi_m = NA, median_split_doi = NA, sex = NA, GPC.Cho0 = NA, Glc0 = NA, POSSX = NA, group = 'HC', condition = 'BL',group_level = 'HC', age_sc = NA)
+  
+  df <- df %>% filter(!(roi == 'Thalamus' & hemi == 'R' & group_level == 'HC'))
+  df <- df %>% group_by(id,roi,hemi,timepoint) %>% slice(1) %>% ungroup()
+  rthal <- rthal %>% group_by(id,roi,hemi,timepoint) %>% slice(1) %>% ungroup()
+  df <- rbind(df,rthal)
+  
+  df <- df %>% group_by(group_level,id,timepoint,roi,hemi) %>% slice(1) %>% ungroup()
+  
+  
+  # 2026-06-04 Will need to add hemi eventually
+  ThGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Glu0 ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
+  ThGABA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), GABA0 ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
+  ThmI <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), mI0 ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
+  ThGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Gln0 ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Gln')
+  ThGluGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Glu.Gln0 ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GluGln')
+  ThNAAG <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAAG0 ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
+  ThNAA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAA0 ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
+  # convergence issues in this lmer model, low variance at the subject level so just use lm
+  ThGpc <- tidy(lm(data = df %>% filter(roi == 'Thalamus'), GPC0 ~ group_level*hemi + scale(GMrat))) %>% mutate(metabolite = 'GPC')
+  #ThCho <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), GPC.Cho ~ group_level + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GPC.Cho')
+  Mth1 <- rbind(ThGlu,ThGABA,ThmI,ThGln,ThGluGln,ThNAAG,ThNAA,ThGpc) %>% mutate(roi = 'Thalamus')
+  
+  
+  CaGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), Glu0~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
+  CaGABA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), GABA0 ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
+  CamI <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), mI0 ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
+  CaGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), Gln0 ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Gln')
+  CaGluGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), Glu.Gln0 ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GluGln')
+  CaNAAG <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), NAAG0 ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
+  CaNAA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), NAA0 ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
+  # convergence issues in this lmer model, low variance at the subject level so just use lm
+  CaGpc <- tidy(lm(data = df %>% filter(roi == 'Caudate'), GPC0 ~ group_level*hemi + sex + scale(GMrat))) %>% mutate(metabolite = 'GPC')
+  #CaCho <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), GPC.Cho ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GPC.Cho')
+  Mca1 <- rbind(CaGlu,CaGABA,CamI,CaGln,CaGluGln,CaNAAG,CaNAA,CaGpc,CaCho) %>% mutate(roi = 'Caudate')
+  
+  Mall_R_SZ <- rbind(Mth1,Mca1) %>% filter(term %in% c('group_levelSZ:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
+  Mall_SZ <- rbind(Mth1,Mca1) %>% filter(term %in% c('group_levelSZ')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
+  
+  
+}
+
+if (reload==T){
   
   #read in ALL corrected data (including duplicates)
   #isolate patients with baseline and follow-up only (ie only patients with known remitter status)
