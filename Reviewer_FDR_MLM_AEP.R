@@ -13,12 +13,13 @@ library(emmeans)
 library(DescTools)
 library(ggrepel)
 
-reload = T
+reload = F
+reload_new = T # 2026-07-02 post redoing GM
 # same as reload, but loads in non gam-adjusted metabolites, can merge with reload df manually
 # also does group analyses with non-gam-adjusted metabolites
 reload_check_GM = F
 longitudinal = F
-group = T
+group = F
 hilowdoi = F
 eibalance = F
 group_r_nr = F
@@ -33,9 +34,16 @@ handedness_group = F
 # includes all ROI-by-metabolite tests within each type of analysis, and report whether the main findings remain significant.
 
 # macbook
-#setwd('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
+basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
 # macmini
-setwd('/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
+#basedir <- setwd('/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
+setwd(basedir)
+
+if (reload_new == T){
+  hc <- read_csv(paste0(basedir,'/HC/','metabolites_gamadj_long_HC_07012026.csv'))
+  ssd <- read_csv(paste0(basedir,'/SSD/','metabolites_gamadj_long_07012026.csv'))
+  common_cols <- intersect(colnames(hc),colnames(ssd))
+}
 
 if (reload_check_GM==T){
   
