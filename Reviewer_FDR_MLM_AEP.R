@@ -13,10 +13,11 @@ library(emmeans)
 library(DescTools)
 library(ggrepel)
 
-reload = F
-reload_new = T # 2026-07-02 post redoing GM
+reload_new = F # 2026-07-02 post redoing GM
 # same as reload, but loads in non gam-adjusted metabolites, can merge with reload df manually
 # also does group analyses with non-gam-adjusted metabolites
+# old, part of redoing GM for revision using uniform method
+reload = T
 reload_check_GM = F
 longitudinal = F
 group = F
@@ -40,9 +41,106 @@ basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/
 setwd(basedir)
 
 if (reload_new == T){
-  hc <- read_csv(paste0(basedir,'/HC/','metabolites_gamadj_long_HC_07012026.csv'))
-  ssd <- read_csv(paste0(basedir,'/SSD/','metabolites_gamadj_long_07012026.csv'))
+  hc <- read_csv(paste0(basedir,'/HC/','metabolites_gamadj_long_HC_07012026.csv')) %>% mutate(group = 'HC', timepoint = 'BL',`DUP (months)` = NA)
+  ssd <- read_csv(paste0(basedir,'/SSD/','metabolites_gamadj_long_07012026.csv')) %>% mutate(group = 'NA',
+                                                                                             timepoint = case_when(timepoint == 1 ~ 'BL',
+                                                                                                                   timepoint == 2 ~ 'FU'))
+  # ssd did not have sex
+  sd <- read_excel('7T.DARES.baselines.xlsx', sheet = 3) %>% group_by(RECID) %>% slice(1) %>% ungroup() %>% select(RECID,sex,"DUP (months)" )
+  sd <- sd %>% mutate(sex = as.factor(case_when(sex == 1 ~ 'M',
+                                                sex == 2 ~ 'F')))
+  
+  ssd <- inner_join(ssd,sd,by='RECID')
+  
   common_cols <- intersect(colnames(hc),colnames(ssd))
+  hc <- hc %>% select(all_of(common_cols))
+  ssd <- ssd %>% select(all_of(common_cols))
+  df <- rbind(hc,ssd) 
+  
+  ############################
+  #add in remitter status from outside spreadsheet
+  supplemental_data2 <- read_excel('BPRS_items_MIKE.xlsx')
+  supplemental_data2 <- supplemental_data2 %>% filter(Timepoint != 0)
+  supplemental_data2 <- supplemental_data2 %>%
+    mutate(Remitter_Status = ifelse(CONCDIS4 <= 3 & HALL12 <= 3 & UTC15 <= 3, "R", "NR"), timepoint = Timepoint)
+  supplemental_data2 <- supplemental_data2 %>% select(RECID,POSSX,Remitter_Status, timepoint)
+  supplemental_dataBL <- read_excel('BPRS_items_MIKE.xlsx')
+  supplemental_dataBL <- supplemental_dataBL %>% filter(Timepoint == 0) %>% mutate(timepoint = Timepoint, Remitter_Status = NA)
+  supplemental_dataBL <- supplemental_dataBL %>% select(RECID, POSSX,timepoint,Remitter_Status)
+  supplemental_data2 <- rbind(supplemental_data2, supplemental_dataBL)
+  supplemental_data2 <- supplemental_data2 %>% group_by(RECID) %>% tidyr::fill(Remitter_Status, .direction = "downup") %>% ungroup() %>% mutate(timepoint = case_when(timepoint == 0 ~ 1,
+                                                                                                                                                                      timepoint > 0 ~ 2))
+  # sarpal_data_BLFU <- sarpal_data_BLFU %>% 
+  #   mutate(Remitter_Status = supplemental_data2$Remitter_Status[match(RECID,supplemental_data2$RECID)])
+  supplemental_data2$RECID <- as.character(supplemental_data2$RECID)
+  supplemental_data2 <- supplemental_data2 %>% mutate(timepoint = case_when(timepoint == 1 ~ 'BL',
+                                                                            timepoint == 2 ~ 'FU'))
+  df <- left_join(df,supplemental_data2,by=c('RECID','timepoint'))
+  df$doi_m <- df$`DUP (months)`
+  df <- df %>% dplyr::select(RECID,doi_m,region,timepoint,age,sex,group,POSSX,Remitter_Status,GMrat,GPC.Cr_gamadj,Glc.Cr_gamadj,Glu.Cr_gamadj,GPC.Cho.Cr_gamadj,GABA.Cr_gamadj,NAA.Cr_gamadj,mI.Cr_gamadj,Gln.Cr_gamadj,NAAG.Cr_gamadj,Glu.Gln.Cr_gamadj,Glu.Cr)
+  df <- df %>% mutate(roi = case_when(region == 'R Caudate' ~ 'R Caudate',
+                                      region == 'right caudate' ~ 'R Caudate',
+                                      region == 'L Caudate' ~ 'L Caudate',
+                                      region == 'left caudate' ~ 'L Caudate',
+                                      region == 'R Thalamus' ~ 'R Thalamus',
+                                      region == 'right thalamus' ~ 'R Thalamus',
+                                      region == 'L Thalamus' ~ 'L Thalamus',
+                                      region == 'left thalamus' ~ 'L Thalamus'))
+  df <- df %>% dplyr::mutate(hemi = str_sub(roi, 1,1),roi = str_sub(roi, 3, -1))
+  df <- df %>% 
+    group_by(roi, group, timepoint) %>% 
+    mutate(across(
+      contains("gamadj"), 
+      ~ case_when(
+        mean(is.na(.)) >= 2/3 ~ NA,
+        TRUE ~ . 
+      )
+    )) %>% 
+    ungroup()
+  df <- df %>% dplyr::rename(id = 'RECID',GPC = 'GPC.Cr_gamadj',Glu = 'Glu.Cr_gamadj',GPC.Cho = 'GPC.Cho.Cr_gamadj',Glc = 'Glc.Cr_gamadj',GABA = 'GABA.Cr_gamadj',NAA = 'NAA.Cr_gamadj',mI = 'mI.Cr_gamadj',Gln = 'Gln.Cr_gamadj',NAAG = 'NAAG.Cr_gamadj',Glu.Gln = 'Glu.Gln.Cr_gamadj')
+  df$timepoint <- relevel(factor(df$timepoint), ref = "BL")
+  df$sex <- relevel(factor(df$sex),ref = "F")
+  df <- df %>% mutate(age_sc = scale(age))
+  
+  df <- df %>% mutate(group = case_when(group == 'HC' ~ 'HC',
+                                        Remitter_Status == 'NR' ~ 'NR',
+                                        Remitter_Status == 'R' ~ 'R')) %>%
+    select(!Remitter_Status)
+  
+  df <- df %>% mutate(group_level = case_when(group == 'HC' ~ 'HC',
+                                              group == 'NR' ~ 'SZ',
+                                              group == 'R' ~ 'SZ',
+                                              is.na(group) ~ 'SZ')
+  )
+  df$group <- relevel(factor(df$group), ref = "HC")
+  df <- df %>%
+    mutate(
+      # Combine Group and Time into 3 valid conditions
+      condition = case_when(
+        group == "HC" ~ "HC_BL",
+        group == "NR" & timepoint == "BL"  ~ "NR_BL",
+        group == "NR" & timepoint == "FU"  ~ "NR_FU",
+        group == "R" & timepoint == "BL"  ~ "R_BL",
+        group == "R" & timepoint == "FU"  ~ "R_FU",      
+      ),
+      condition = factor(condition, levels = c("HC_BL", "NR_BL", "R_BL", "NR_FU","R_FU"))
+    )
+  
+  df$condition <- relevel(df$condition, ref = "HC_BL")
+  
+  df$group_level <- relevel(as.factor(df$group_level),'HC')
+  df0 <- df %>% group_by(id) %>% slice(1) %>% ungroup()
+  mDOI <- median(df0$doi_m[df0$group_level == 'SZ'],na.rm=TRUE)
+  df <- df %>% mutate(median_split_doi = case_when(doi_m >= mDOI ~ 'high',
+                                                   doi_m < mDOI ~ 'low')
+  )
+  df$median_split_doi[df$id == "2695"] = 'low'
+  
+  df <- df %>% mutate(Glu = case_when(Glu < 7.5 ~ Glu,
+                                      Glu >= 7.5 ~ NA))
+  
+  df0 <- df %>% group_by(group_level,id) %>% slice(1) %>% ungroup() %>% group_by(group_level) %>% summarize(mA = mean(age, na.rm=TRUE), sA = sd(age,na.rm=TRUE), N= n()) %>% ungroup()
+  dfbprs <- df %>% filter(group_level == 'SZ') %>% group_by(id,timepoint) %>% slice(1) %>% ungroup() %>% group_by(timepoint) %>% summarize(mbprs = mean(POSSX,na.rm=TRUE), sbprs = sd(POSSX,na.rm=TRUE)) %>% ungroup()
 }
 
 if (reload_check_GM==T){
@@ -296,16 +394,16 @@ if (reload==T){
   
   # wrangling
   df <- df %>% dplyr::select(RECID,hemi,doi_m,timepoint,age,GMrat,GPC.adj,sex,roi,Glc.adj,Glu.adj,GPC.Cho.adj,GABA.adj,NAA.adj,mI.adj,Gln.adj,NAAG.adj,POSSX,Remitter_Status,Glu.Gln.adj)
-  luna_data <- luna_data %>% dplyr::select(lunaid,region,age,GMrat,GABA,Glc,Gln,Glu,mI,NAA,NAAG,GPC.Cho,GPC,Glu.Gln,sex)
+  luna_data <- luna_data %>% dplyr::select(lunaid,date,region,age,GMrat,GABA,Glc,Gln,Glu,mI,NAA,NAAG,GPC.Cho,GPC,Glu.Gln,sex)
   luna_data <- luna_data %>% mutate(group = 'HC', POSSX = NA, timepoint = 'BL')
   df <- df %>% dplyr::rename(id = 'RECID',GPC = 'GPC.adj',Glu = 'Glu.adj',GPC.Cho = 'GPC.Cho.adj',Glc = 'Glc.adj',GABA = 'GABA.adj',NAA = 'NAA.adj',mI = 'mI.adj',Gln = 'Gln.adj',NAAG = 'NAAG.adj',Glu.Gln = 'Glu.Gln.adj')
   luna_data <- luna_data %>% mutate(hemi = str_sub(region,1,1),
                                     roi = str_sub(region,2))
   luna_data <- luna_data %>% dplyr::select(!region)
   df <- df %>% dplyr::rename(group = "Remitter_Status")
-  
   # merge
   luna_data <- luna_data %>% mutate(doi_m = NA) %>% rename(id = lunaid)
+  df$date <- NA
   df <- rbind(df,luna_data)
   df <- df %>% filter(roi %in% c('Caudate','Thalamus'))
   
@@ -355,7 +453,7 @@ if (reload==T){
   lthal <- lthal %>% mutate(group = 'HC',condition = "HC_BL",group_level = "HC", POSSX = NA, GPC.Cho = NA, Glc = NA)
   lthal <- lthal %>% rename(GPC = "GPC.Cr_gamadj",Glu = "Glu.Cr_gamadj",Gln = "Gln.Cr_gamadj",mI = "mI.Cr_gamadj",GABA = "GABA.Cr_gamadj",NAAG = "NAAG.Cr_gamadj",NAA = "NAA.Cr_gamadj",Glu.Gln = "Glu.Gln.Cr_gamadj")
   lthal <- lthal %>% mutate(id = str_replace(id, "_[^_]*$", ""))
-  
+  lthal$date <- NA
   df <- df %>% select(!age_sc)
   df <- rbind(df,lthal)  
   df <- df %>% mutate(age_sc = scale(age))
@@ -411,6 +509,7 @@ if (reload==T){
   df <- df %>% filter(!(roi == 'Thalamus' & hemi == 'R' & group_level == 'HC'))
   df <- df %>% group_by(id,roi,hemi,timepoint) %>% slice(1) %>% ungroup()
   rthal <- rthal %>% group_by(id,roi,hemi,timepoint) %>% slice(1) %>% ungroup()
+  rthal$date <- NA
   df <- rbind(df,rthal)
   
   
@@ -667,34 +766,36 @@ if (hilowdoi==T){
 
 if (group==T){
   
+  
+  
   # 2026-06-04 Will need to add hemi eventually
-  ThGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Glu ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
-  ThGABA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), GABA ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
-  ThmI <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), mI ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
-  ThGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Gln ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Gln')
-  ThGluGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Glu.Gln ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GluGln')
-  ThNAAG <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAAG ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
-  ThNAA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAA ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
+  ThGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
+  ThGABA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), GABA ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
+  ThmI <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), mI ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
+  ThGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Gln ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Gln')
+  ThGluGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu.Gln ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GluGln')
+  ThNAAG <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAAG ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
+  ThNAA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAA ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
   # convergence issues in this lmer model, low variance at the subject level so just use lm
-  ThGpc <- tidy(lm(data = df %>% filter(roi == 'Thalamus'), GPC ~ group_level*hemi + scale(GMrat))) %>% mutate(metabolite = 'GPC')
+  ThGpc <- tidy(lm(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), GPC ~ group_level*hemi + scale(GMrat))) %>% mutate(metabolite = 'GPC')
   #ThCho <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), GPC.Cho ~ group_level + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GPC.Cho')
   Mth1 <- rbind(ThGlu,ThGABA,ThmI,ThGln,ThGluGln,ThNAAG,ThNAA,ThGpc) %>% mutate(roi = 'Thalamus')
   
   
-  CaGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), Glu ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
-  CaGABA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), GABA ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
-  CamI <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
-  CaGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Gln')
-  CaGluGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GluGln')
-  CaNAAG <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
-  CaNAA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
+  CaGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
+  CaGABA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GABA ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
+  CamI <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
+  CaGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Gln')
+  CaGluGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GluGln')
+  CaNAAG <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
+  CaNAA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
   # convergence issues in this lmer model, low variance at the subject level so just use lm
-  CaGpc <- tidy(lm(data = df %>% filter(roi == 'Caudate'), GPC ~ group_level*hemi + sex + scale(GMrat))) %>% mutate(metabolite = 'GPC')
-  CaCho <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), GPC.Cho ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GPC.Cho')
+  CaGpc <- tidy(lm(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GPC ~ group_level*hemi + sex + scale(GMrat))) %>% mutate(metabolite = 'GPC')
+  CaCho <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GPC.Cho ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GPC.Cho')
   Mca1 <- rbind(CaGlu,CaGABA,CamI,CaGln,CaGluGln,CaNAAG,CaNAA,CaGpc,CaCho) %>% mutate(roi = 'Caudate')
   
-  Mall_R_SZ <- rbind(Mth1,Mca1) %>% filter(term %in% c('group_levelSZ:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
-  Mall_SZ <- rbind(Mth1,Mca1) %>% filter(term %in% c('group_levelSZ')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
+  Mall_R_SZ <- rbind(Mth1,Mca1) %>% filter(term %in% c('group_levelSZ:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr) %>% filter(pfdr < 0.05)
+  Mall_SZ <- rbind(Mth1,Mca1) %>% filter(term %in% c('group_levelSZ')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr) %>% filter(pfdr < 0.05)
   
   
   library(emmeans)
@@ -755,12 +856,12 @@ if (group==T){
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
   
-  # examine emmeans
-  MThNAAG <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))
-  emm <- emmeans(MThNAAG, ~ hemi | group_level, data = df %>% filter(roi == 'Thalamus'))
-  # Convert to data frame
-  emm_df <- as.data.frame(emm)
-  pairs(emm,adjust = "fdr")
+  # examine emmeans, yes there is more in L in HC and more in R in SZ
+  # MThNAAG <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  # emm <- emmeans(MThNAAG, ~ hemi | group_level, data = df %>% filter(roi == 'Thalamus'))
+  # # Convert to data frame
+  # emm_df <- as.data.frame(emm)
+  # pairs(emm,adjust = "fdr")
   
   # examine emmeans
   MThNAA <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
@@ -769,6 +870,19 @@ if (group==T){
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
    
+  # examine emmeans
+  MThNAAG <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThNAAG, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MCamI <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MCamI, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
   # # Create a customized plot
   # ggplot(emm_df, aes(x = group_level, y = emmean, color = hemi, group=hemi)) +
   #   geom_point(size = 3) +
