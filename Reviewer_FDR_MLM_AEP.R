@@ -13,14 +13,14 @@ library(emmeans)
 library(DescTools)
 library(ggrepel)
 
-reload_new = T # 2026-07-02 post redoing GM
+reload_new = F # 2026-07-02 post redoing GM
 # same as reload, but loads in non gam-adjusted metabolites, can merge with reload df manually
 # also does group analyses with non-gam-adjusted metabolites
 # old, part of redoing GM for revision using uniform method
-reload = F
+reload = T
 reload_check_GM = F
 longitudinal = F
-group = F
+group = T
 hilowdoi = F
 eibalance = F
 group_r_nr = F
@@ -56,6 +56,12 @@ if (reload_new == T){
   hc <- hc %>% select(all_of(common_cols))
   ssd <- ssd %>% select(all_of(common_cols))
   df <- rbind(hc,ssd) 
+  # df <- df %>% filter(region != 'right caudate' & group == 'HC') #%>% mutate(RECID = gsub("^(.*?)_.*", "\\1", RECID))
+  # 
+  # testRC <- read_xlsx('Copy of R_Caudate_Glu.xlsx') %>% rename(RECID = id)#%>% 
+  #   #mutate(RECID = gsub("^(.*?)_.*", "\\1", RECID))
+  
+  #df <- inner_join(testRC,df, by=c('RECID'))
   
   ############################
   #add in remitter status from outside spreadsheet
@@ -139,8 +145,11 @@ if (reload_new == T){
   df <- df %>% mutate(Glu = case_when(Glu < 7.5 ~ Glu,
                                       Glu >= 7.5 ~ NA))
   
+  df <- df %>% filter(age >= 18)
+  
   df0 <- df %>% group_by(group_level,id) %>% slice(1) %>% ungroup() %>% group_by(group_level) %>% summarize(mA = mean(age, na.rm=TRUE), sA = sd(age,na.rm=TRUE), N= n()) %>% ungroup()
   dfbprs <- df %>% filter(group_level == 'SZ') %>% group_by(id,timepoint) %>% slice(1) %>% ungroup() %>% group_by(timepoint) %>% summarize(mbprs = mean(POSSX,na.rm=TRUE), sbprs = sd(POSSX,na.rm=TRUE)) %>% ungroup()
+  
 }
 
 if (reload_check_GM==T){
@@ -787,12 +796,12 @@ if (group==T){
   CamI <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
   CaGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Gln')
   CaGluGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GluGln')
-  CaNAAG <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
+  #CaNAAG <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
   CaNAA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
   # convergence issues in this lmer model, low variance at the subject level so just use lm
   CaGpc <- tidy(lm(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GPC ~ group_level*hemi + sex + scale(GMrat))) %>% mutate(metabolite = 'GPC')
   CaCho <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GPC.Cho ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GPC.Cho')
-  Mca1 <- rbind(CaGlu,CaGABA,CamI,CaGln,CaGluGln,CaNAAG,CaNAA,CaGpc,CaCho) %>% mutate(roi = 'Caudate')
+  Mca1 <- rbind(CaGlu,CaGABA,CamI,CaGln,CaGluGln,CaNAA,CaGpc,CaCho) %>% mutate(roi = 'Caudate')
   
   Mall_R_SZ <- rbind(Mth1,Mca1) %>% filter(term %in% c('group_levelSZ:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr) %>% filter(pfdr < 0.05)
   Mall_SZ <- rbind(Mth1,Mca1) %>% filter(term %in% c('group_levelSZ')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr) %>% filter(pfdr < 0.05)
