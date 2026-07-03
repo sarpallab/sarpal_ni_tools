@@ -13,11 +13,11 @@ library(emmeans)
 library(DescTools)
 library(ggrepel)
 
-reload_new = F # 2026-07-02 post redoing GM
+reload_new = T # 2026-07-02 post redoing GM
 # same as reload, but loads in non gam-adjusted metabolites, can merge with reload df manually
 # also does group analyses with non-gam-adjusted metabolites
 # old, part of redoing GM for revision using uniform method
-reload = T
+reload = F
 reload_check_GM = F
 longitudinal = F
 group = F
@@ -77,7 +77,7 @@ if (reload_new == T){
                                                                             timepoint == 2 ~ 'FU'))
   df <- left_join(df,supplemental_data2,by=c('RECID','timepoint'))
   df$doi_m <- df$`DUP (months)`
-  df <- df %>% dplyr::select(RECID,doi_m,region,timepoint,age,sex,group,POSSX,Remitter_Status,GMrat,GPC.Cr_gamadj,Glc.Cr_gamadj,Glu.Cr_gamadj,GPC.Cho.Cr_gamadj,GABA.Cr_gamadj,NAA.Cr_gamadj,mI.Cr_gamadj,Gln.Cr_gamadj,NAAG.Cr_gamadj,Glu.Gln.Cr_gamadj,Glu.Cr)
+  df <- df %>% dplyr::select(RECID,doi_m,region,timepoint,age,sex,group,Scan_date,POSSX,Remitter_Status,GMrat,GPC.Cr_gamadj,Glc.Cr_gamadj,Glu.Cr_gamadj,GPC.Cho.Cr_gamadj,GABA.Cr_gamadj,NAA.Cr_gamadj,mI.Cr_gamadj,Gln.Cr_gamadj,NAAG.Cr_gamadj,Glu.Gln.Cr_gamadj,Glu.Cr)
   df <- df %>% mutate(roi = case_when(region == 'R Caudate' ~ 'R Caudate',
                                       region == 'right caudate' ~ 'R Caudate',
                                       region == 'L Caudate' ~ 'L Caudate',
