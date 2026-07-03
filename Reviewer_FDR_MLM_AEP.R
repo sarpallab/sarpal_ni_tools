@@ -194,10 +194,10 @@ if (reload_check_GM==T){
   # The adjustment is based on the length of the scan and was done for luna lab and Sarpal lab.
   load('luna_data.Rdata')
   #get rid of unimportant columns for our immediate analysis to allow for wide pivot
-  luna_data <- luna_data[, c("met", "ld8", "region", "age", "GMrat","Cr")]
+  luna_data <- luna_data[, c("met", "ld8", "region", "age", "GMrat","Cr_gamadj")]
   #pivot wide for easy comparison with other spreadsheet
   luna_data <- luna_data %>%
-    pivot_wider(names_from = met, values_from = Cr)
+    pivot_wider(names_from = met, values_from = Cr_gamadj)
   luna_data <- luna_data %>%
     separate(ld8, into = c("lunaid", "date"), sep = "_")
   luna_data$lunaid <- as.numeric(luna_data$lunaid)
