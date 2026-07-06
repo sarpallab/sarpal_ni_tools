@@ -13,7 +13,8 @@ library(emmeans)
 library(DescTools)
 library(ggrepel)
 
-reload_new = T # 2026-07-02 post redoing GM
+reload_new_20260706 = T # 2026-07-06 reload after redoing gamadj models AndyP
+reload_new = F # 2026-07-02 post redoing GM
 # same as reload, but loads in non gam-adjusted metabolites, can merge with reload df manually
 # also does group analyses with non-gam-adjusted metabolites
 # old, part of redoing GM for revision using uniform method
@@ -35,10 +36,163 @@ handedness_group = F
 # includes all ROI-by-metabolite tests within each type of analysis, and report whether the main findings remain significant.
 
 # macbook
-#basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
+basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
 # macmini
-basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
+#basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
 setwd(basedir)
+
+if (reload_new_20260706 == T){
+  load('20260706-gamadj-HC.Rdata') # loads met_out1
+  hc <- met_out1
+  rm(met_out1)
+  gc()
+  load('20260706-SSD-gamadj.Rdata') # loads sz_met_out
+  ssd <- sz_met_out %>% group_by(RECID,timepoint,region,metabolite) %>% slice(1) %>% ungroup()
+  rm(sz_met_out)
+  
+  hc <- hc %>% select(id,visitnum,sex,age,label,GMrat,all_of(contains('_gamadj')))
+  hc <- hc %>% rename(timepoint = visitnum)
+  
+  ssd <- ssd %>% pivot_wider(id_cols = c(RECID,timepoint,region,age), names_from = metabolite, values_from = value)
+  
+  # ssd did not have sex
+  sd <- read_excel('7T.DARES.baselines.xlsx', sheet = 3) %>% group_by(RECID) %>% slice(1) %>% ungroup() %>% select(RECID,sex,"DUP (months)" )
+  sd <- sd %>% mutate(sex = as.factor(case_when(sex == 1 ~ 'M',
+                                                sex == 2 ~ 'F')))
+  
+  ssd <- inner_join(ssd,sd,by='RECID')
+  
+  # get GMrat
+  ssdgm <- read_excel('sarpal_mrsi_original_07062026.xlsx') %>% select(RECID,timepoint,region,GMrat)
+  ssdgm <- ssdgm %>% mutate(roi = case_when(region == 'R Caudate' ~ 'R Caudate',
+                                                 region == 'right caudate' ~ 'R Caudate',
+                                                 region == 'L Caudate' ~ 'L Caudate',
+                                                 region == 'left caudate' ~ 'L Caudate',
+                                                 region == 'R Thalamus' ~ 'R Thalamus',
+                                                 region == 'right thalamus' ~ 'R Thalamus',
+                                                 region == 'L Thalamus' ~ 'L Thalamus',
+                                                 region == 'left thalamus' ~ 'L Thalamus'))
+  
+  ssd <- inner_join(ssd,ssdgm,by=c('RECID','timepoint','region'))
+  
+  ssd <- ssd %>% rename(id = RECID)
+  hc <- hc %>% rename(region = label)
+  hc <- hc %>% mutate("DUP (months)"  = NA)
+  # to check, add SD values, check that results hold when covarying for CRLB, can also check FD
+  
+  ssd <- ssd %>% mutate(group_level = 'SZ')
+  hc <- hc %>% mutate(group_level = 'HC')
+  
+  common_col <- intersect(colnames(hc),colnames(ssd))
+  hc <- hc %>% select(common_col)
+  ssd <- ssd %>% select(common_col)
+  
+  df <- rbind(ssd,hc)
+  
+  ############################
+  #add in remitter status from outside spreadsheet
+  supplemental_data2 <- read_excel('BPRS_items_MIKE.xlsx')
+  supplemental_data2 <- supplemental_data2 %>% filter(Timepoint != 0)
+  supplemental_data2 <- supplemental_data2 %>%
+    mutate(Remitter_Status = ifelse(CONCDIS4 <= 3 & HALL12 <= 3 & UTC15 <= 3, "R", "NR"), timepoint = Timepoint)
+  supplemental_data2 <- supplemental_data2 %>% select(RECID,POSSX,Remitter_Status, timepoint)
+  supplemental_dataBL <- read_excel('BPRS_items_MIKE.xlsx')
+  supplemental_dataBL <- supplemental_dataBL %>% filter(Timepoint == 0) %>% mutate(timepoint = Timepoint, Remitter_Status = NA)
+  supplemental_dataBL <- supplemental_dataBL %>% select(RECID, POSSX,timepoint,Remitter_Status)
+  supplemental_data2 <- rbind(supplemental_data2, supplemental_dataBL)
+  supplemental_data2 <- supplemental_data2 %>% group_by(RECID) %>% tidyr::fill(Remitter_Status, .direction = "downup") %>% ungroup() %>% mutate(timepoint = case_when(timepoint == 0 ~ 1,
+                                                                                                                                                                      timepoint > 0 ~ 2))
+  # sarpal_data_BLFU <- sarpal_data_BLFU %>% 
+  #   mutate(Remitter_Status = supplemental_data2$Remitter_Status[match(RECID,supplemental_data2$RECID)])
+  supplemental_data2$RECID <- as.character(supplemental_data2$RECID)
+  supplemental_data2 <- supplemental_data2 %>% mutate(timepoint = case_when(timepoint == 1 ~ 'BL',
+                                                                            timepoint == 2 ~ 'FU')) %>% rename(id = RECID)
+  
+  df$timepoint <- as.character(df$timepoint)
+  df <- left_join(df,supplemental_data2,by=c('id','timepoint'))
+  df$doi_m <- df$`DUP (months)`
+  df <- df %>% dplyr::select(id,doi_m,region,group_level,timepoint,age,sex,POSSX,Remitter_Status,GMrat,GPC.Cr_gamadj,Glc.Cr_gamadj,Glu.Cr_gamadj,GPC.Cho.Cr_gamadj,GABA.Cr_gamadj,NAA.Cr_gamadj,mI.Cr_gamadj,Gln.Cr_gamadj,NAAG.Cr_gamadj,Glu.Gln.Cr_gamadj)
+  df <- df %>% mutate(roi = case_when(region == 'R Caudate' ~ 'R Caudate',
+                                      region == 'right caudate' ~ 'R Caudate',
+                                      region == 'L Caudate' ~ 'L Caudate',
+                                      region == 'left caudate' ~ 'L Caudate',
+                                      region == 'R Thalamus' ~ 'R Thalamus',
+                                      region == 'right thalamus' ~ 'R Thalamus',
+                                      region == 'L Thalamus' ~ 'L Thalamus',
+                                      region == 'left thalamus' ~ 'L Thalamus'))
+  df <- df %>% dplyr::mutate(hemi = str_sub(roi, 1,1),roi = str_sub(roi, 3, -1))
+  df <- df %>% 
+    group_by(roi, group_level, timepoint) %>% 
+    mutate(across(
+      contains("gamadj"), 
+      ~ case_when(
+        mean(is.na(.)) >= 2/3 ~ NA,
+        TRUE ~ . 
+      )
+    )) %>% 
+    ungroup()
+  df <- df %>% dplyr::rename(id = 'id',GPC = 'GPC.Cr_gamadj',Glu = 'Glu.Cr_gamadj',GPC.Cho = 'GPC.Cho.Cr_gamadj',Glc = 'Glc.Cr_gamadj',GABA = 'GABA.Cr_gamadj',NAA = 'NAA.Cr_gamadj',mI = 'mI.Cr_gamadj',Gln = 'Gln.Cr_gamadj',NAAG = 'NAAG.Cr_gamadj',Glu.Gln = 'Glu.Gln.Cr_gamadj')
+  
+  df <- df %>% filter(age >= 18)
+  
+  df <- df %>% group_by(id) %>% mutate(nsess = 1:n()) %>%
+    ungroup()
+  
+  
+  
+  df <- df %>% mutate(timepoint = case_when(timepoint == "1" ~ "BL",
+                                            timepoint == "2" ~ "FU"))
+  df$timepoint <- relevel(factor(df$timepoint), ref = "BL")
+  df$sex <- relevel(factor(df$sex),ref = "F")
+  df <- df %>% mutate(age_sc = scale(age))
+  
+  df <- df %>% mutate(group = case_when(group == 'HC' ~ 'HC',
+                                        Remitter_Status == 'NR' ~ 'NR',
+                                        Remitter_Status == 'R' ~ 'R')) %>%
+    select(!Remitter_Status)
+  
+  df <- df %>% mutate(group_level = case_when(group == 'HC' ~ 'HC',
+                                              group == 'NR' ~ 'SZ',
+                                              group == 'R' ~ 'SZ',
+                                              is.na(group) ~ 'SZ')
+  )
+  df$group <- relevel(factor(df$group), ref = "HC")
+  df <- df %>%
+    mutate(
+      # Combine Group and Time into 3 valid conditions
+      condition = case_when(
+        group == "HC" ~ "HC_BL",
+        group == "NR" & timepoint == "BL"  ~ "NR_BL",
+        group == "NR" & timepoint == "FU"  ~ "NR_FU",
+        group == "R" & timepoint == "BL"  ~ "R_BL",
+        group == "R" & timepoint == "FU"  ~ "R_FU",      
+      ),
+      condition = factor(condition, levels = c("HC_BL", "NR_BL", "R_BL", "NR_FU","R_FU"))
+    )
+  
+  df$condition <- relevel(df$condition, ref = "HC_BL")
+  
+  df$group_level <- relevel(as.factor(df$group_level),'HC')
+  df0 <- df %>% group_by(id) %>% slice(1) %>% ungroup()
+  mDOI <- median(df0$doi_m[df0$group_level == 'SZ'],na.rm=TRUE)
+  df <- df %>% mutate(median_split_doi = case_when(doi_m >= mDOI ~ 'high',
+                                                   doi_m < mDOI ~ 'low')
+  )
+  df$median_split_doi[df$id == "2695"] = 'low'
+  
+  df <- df %>% mutate(Glu = case_when(Glu < 7.5 ~ Glu,
+                                      Glu >= 7.5 ~ NA))
+  
+  df0 <- df %>% group_by(group_level,id) %>% slice(1) %>% ungroup() %>% group_by(group_level) %>% summarize(mA = mean(age, na.rm=TRUE), sA = sd(age,na.rm=TRUE), N= n()) %>% ungroup()
+  dfbprs <- df %>% filter(group_level == 'SZ') %>% group_by(id,timepoint) %>% slice(1) %>% ungroup() %>% group_by(timepoint) %>% summarize(mbprs = mean(POSSX,na.rm=TRUE), sbprs = sd(POSSX,na.rm=TRUE)) %>% ungroup()
+  df <- df %>% mutate(Glu.Cr_mike = case_when(group_level == 'HC' ~ Glu.Cr_mike,
+                                              group_level == 'SZ' ~ Glu),
+                      GMrat_mike = case_when(group_level == 'HC' ~ GMrat_mike,
+                                             group_level == 'SZ' ~ GMrat))
+  
+  
+}
+
 
 if (reload_new == T){
   hc <- read_csv(paste0(basedir,'/HC_20260703/','metabolites_gamadj_HC_20260703.csv')) %>% mutate(group = 'HC', timepoint = 'BL',`DUP (months)` = NA)

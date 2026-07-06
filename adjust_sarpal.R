@@ -74,8 +74,8 @@ ggplot(data = this.met, aes(x = GABA.Cr, y = GABA.Cr.adj, color=as.factor(hemi),
 # Loop all
 names(szmet_new %>% select(-contains('%') & contains('/Cre')))
 
-sz_mets <- c('GABA/Cre', 'Glu/Cre', 'Gln/Cre','Glc/Cre', 'GSH/Cre','mI/Cre','NAA/Cre', 'Tau/Cre', 'Glu.Gln/Cre', 'NAAG/Cre', 'GPC/Cre', 'GPC.Cho/Cre')
-mod_mets <- c('GABA.Cr',    'Glu.Cr',     'Gln.Cr',    'Glc.Cr',     'GSH.Cr',    'mI.Cr',    'NAA.Cr',     'Tau.Cr',     'Glu.Gln.Cr', 'NAAG.Cr', 'GPC.Cr','GPC.Cho.Cr')
+sz_mets <- c('Cre','GABA/Cre', 'Glu/Cre', 'Gln/Cre','Glc/Cre', 'GSH/Cre','mI/Cre','NAA/Cre', 'Tau/Cre', 'Glu.Gln/Cre', 'NAAG/Cre', 'GPC/Cre', 'GPC.Cho/Cre')
+mod_mets <- c('Cr','GABA.Cr',    'Glu.Cr',     'Gln.Cr',    'Glc.Cr',     'GSH.Cr',    'mI.Cr',    'NAA.Cr',     'Tau.Cr',     'Glu.Gln.Cr', 'NAAG.Cr', 'GPC.Cr','GPC.Cho.Cr')
 roiset <- c('L Caudate','R Caudate','L Thalamus','R Thalamus')
 
 #Glu+Gln, NAAG, GPC, GPC+CHO
@@ -116,7 +116,7 @@ for (thisroi in roiset) {
       this.met <- this.met %>% mutate(dateNumeric = as.numeric(gsub("-","",dateNumeric)))
       ## now, predict @ mean date (but with real age & GMrat) and add back in residual
       temp <- unname(predict(gam.model, this.met)) + e
-      this.met <- this.met %>% mutate(metabolite = this_mod_met) %>% select(!all_of(this_sz_met)) %>% select(!all_of(this_mod_met))
+      this.met <- this.met %>% mutate(value = temp, metabolite = paste0(this_mod_met,'_gamadj')) %>% select(!all_of(this_sz_met)) %>% select(!all_of(this_mod_met))
       if (length(sz_met_out)==0){
         sz_met_out <- this.met
       } else {
@@ -128,6 +128,8 @@ for (thisroi in roiset) {
     })
   }
 }
+
+save(sz_met_out, file='20260706-SSD-gamadj.Rdata')
 
 # adj.df.wide <- merge(
 #   adj.df %>% select(-met.adj) %>% pivot_wider(names_from = metname, values_from = met),
