@@ -21,7 +21,7 @@ reload_new = F # 2026-07-02 post redoing GM
 reload = F
 reload_check_GM = F
 longitudinal = F
-group = F
+group = T
 hilowdoi = F
 eibalance = F
 group_r_nr = F
@@ -64,7 +64,7 @@ if (reload_new_20260706 == T){
   
   # get GMrat
   ssdgm <- read_excel('sarpal_mrsi_original_07062026.xlsx') %>% select(RECID,timepoint,region,GMrat)
-  ssdgm <- ssdgm %>% mutate(roi = case_when(region == 'R Caudate' ~ 'R Caudate',
+  ssdgm <- ssdgm %>% mutate(region = case_when(region == 'R Caudate' ~ 'R Caudate',
                                                  region == 'right caudate' ~ 'R Caudate',
                                                  region == 'L Caudate' ~ 'L Caudate',
                                                  region == 'left caudate' ~ 'L Caudate',
@@ -109,7 +109,7 @@ if (reload_new_20260706 == T){
                                                                             timepoint == 2 ~ 'FU')) %>% rename(id = RECID)
   
   df$timepoint <- as.character(df$timepoint)
-  df <- left_join(df,supplemental_data2,by=c('id','timepoint'))
+  df <- full_join(df,supplemental_data2,by=c('id','timepoint'))
   df$doi_m <- df$`DUP (months)`
   df <- df %>% dplyr::select(id,doi_m,region,group_level,timepoint,age,sex,POSSX,Remitter_Status,GMrat,GPC.Cr_gamadj,Glc.Cr_gamadj,Glu.Cr_gamadj,GPC.Cho.Cr_gamadj,GABA.Cr_gamadj,NAA.Cr_gamadj,mI.Cr_gamadj,Gln.Cr_gamadj,NAAG.Cr_gamadj,Glu.Gln.Cr_gamadj)
   df <- df %>% mutate(roi = case_when(region == 'R Caudate' ~ 'R Caudate',
@@ -138,24 +138,26 @@ if (reload_new_20260706 == T){
   df <- df %>% group_by(id) %>% mutate(nsess = 1:n()) %>%
     ungroup()
   
+  df$timepoint <- as.numeric(df$timepoint)
   
+  df <- df %>% group_by(id) %>% arrange(nsess) %>% 
+    mutate(timepoint1 = case_when(timepoint == min(nsess) ~ "BL",
+                                  timepoint == min(nsess)+1 ~ "FU",
+                                  timepoint > min(nsess)+1 ~ 'discard'))
+  df <- df %>% filter(timepoint1 != 'discard') %>%
+    select(!timepoint) %>% rename(timepoint = timepoint1)
   
-  df <- df %>% mutate(timepoint = case_when(timepoint == "1" ~ "BL",
-                                            timepoint == "2" ~ "FU"))
+  df <- df %>% group_by(id,timepoint,roi,hemi) %>% slice(1) %>% ungroup()
+  
   df$timepoint <- relevel(factor(df$timepoint), ref = "BL")
   df$sex <- relevel(factor(df$sex),ref = "F")
   df <- df %>% mutate(age_sc = scale(age))
   
-  df <- df %>% mutate(group = case_when(group == 'HC' ~ 'HC',
+  df <- df %>% mutate(group = case_when(group_level == 'HC' ~ 'HC',
                                         Remitter_Status == 'NR' ~ 'NR',
                                         Remitter_Status == 'R' ~ 'R')) %>%
     select(!Remitter_Status)
-  
-  df <- df %>% mutate(group_level = case_when(group == 'HC' ~ 'HC',
-                                              group == 'NR' ~ 'SZ',
-                                              group == 'R' ~ 'SZ',
-                                              is.na(group) ~ 'SZ')
-  )
+
   df$group <- relevel(factor(df$group), ref = "HC")
   df <- df %>%
     mutate(
@@ -180,15 +182,20 @@ if (reload_new_20260706 == T){
   )
   df$median_split_doi[df$id == "2695"] = 'low'
   
-  df <- df %>% mutate(Glu = case_when(Glu < 7.5 ~ Glu,
-                                      Glu >= 7.5 ~ NA))
+  df <- df %>% mutate(Glu = case_when(Glu < 5*mean(Glu,na.rm=T) ~ Glu,
+                                      Glu >= 5*mean(Glu,na.rm=T) ~ NA))
+  df <- df %>% mutate(NAAG = case_when(NAAG <5*mean(NAAG,na.rm=T) ~ NAAG,
+                                       NAAG >= 5*mean(NAAG,na.rm=T) ~ NA))
+  df <- df %>% mutate(NAAG = case_when(NAA < 5*mean(NAA,na.rm=T) ~ NAA,
+                                       NAA >= 5*mean(NAA,na.rm=T) ~ NA))
+  df <- df %>% mutate(mI = case_when(mI < 5*mean(mI,na.rm=T) ~ mI,
+                                       mI >= 5*mean(mI,na.rm=T) ~ NA))
+  df <- df %>% mutate(Glu.Gln = case_when(Glu.Gln < 5*mean(Glu.Gln,na.rm=T) ~ Glu.Gln,
+                                       Glu.Gln >= 5*mean(Glu.Gln,na.rm=T) ~ NA))
   
+  df <- df %>% select(!Glc) # No Gln data in SSD
   df0 <- df %>% group_by(group_level,id) %>% slice(1) %>% ungroup() %>% group_by(group_level) %>% summarize(mA = mean(age, na.rm=TRUE), sA = sd(age,na.rm=TRUE), N= n()) %>% ungroup()
   dfbprs <- df %>% filter(group_level == 'SZ') %>% group_by(id,timepoint) %>% slice(1) %>% ungroup() %>% group_by(timepoint) %>% summarize(mbprs = mean(POSSX,na.rm=TRUE), sbprs = sd(POSSX,na.rm=TRUE)) %>% ungroup()
-  df <- df %>% mutate(Glu.Cr_mike = case_when(group_level == 'HC' ~ Glu.Cr_mike,
-                                              group_level == 'SZ' ~ Glu),
-                      GMrat_mike = case_when(group_level == 'HC' ~ GMrat_mike,
-                                             group_level == 'SZ' ~ GMrat))
   
   
 }
@@ -949,7 +956,7 @@ if (group==T){
   Mth1 <- rbind(ThGlu,ThGABA,ThmI,ThGln,ThGluGln,ThNAAG,ThNAA,ThGpc) %>% mutate(roi = 'Thalamus')
   
   
-  CaGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu.Cr_mike ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
+  CaGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
   CaGABA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GABA ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
   CamI <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
   CaGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Gln')
@@ -968,7 +975,7 @@ if (group==T){
   library(emmeans)
   
   # examine emmeans
-  MCaGlu <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'),  Glu.Cr_mike ~ group_level + (1|id))
+  MCaGlu <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'),  Glu ~ group_level*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(MCaGlu, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
