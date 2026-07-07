@@ -38,32 +38,32 @@ szmet_new <- szmet_orig %>%
   mutate(region = paste0(hemi,' ', roi))
 
 # Grab model based on ROI & metabolite
-gam.model <- gam_models$`model_R Thalamus_GABA.Cr`
+gam.model <- gam_models$`model_R Thalamus_NAAG.Cr`
 #metdata <- gam_models %>% filter(met == 'GABA', biregion == 'Thalamus') %>% pull(metdata)
 metdata <- met_out1 %>% filter(label == 'R Thalamus')
 metdata <- metdata %>% mutate(dateNumeric1 = ymd(dateNumeric))
 meandate <- mean(metdata$dateNumeric1,na.rm=TRUE)
 # Extract necessary data from sz data frame
 this.met <- szmet_new %>%
-  select(RECID, timepoint, age, hemi, roi, dateNumeric, GMrat, GABA.Cre = `GABA/Cre`) %>%
+  select(RECID, timepoint, age, hemi, roi, dateNumeric, GMrat, NAAG.Cre = `NAAG/Cre`) %>%
   filter(roi == 'Thalamus')
-this.met$GABA.Cre <- as.numeric(this.met$GABA.Cre)
+this.met$NAAG.Cre <- as.numeric(this.met$NAAG.Cre)
 
 
-this.met <- this.met %>% rename(GABA.Cr = GABA.Cre) %>% 
-  mutate(GABA.Cr = replace_na(GABA.Cr,mean(GABA.Cr,na.rm=T))) %>%
+this.met <- this.met %>% rename(NAAG.Cr = NAAG.Cre) %>% 
+  mutate(NAAG.Cr = replace_na(NAAG.Cr,mean(NAAG.Cr,na.rm=T))) %>%
   mutate(dateNumeric = as.integer(format(as_datetime(dateNumeric, tz = "UTC"), "%Y%m%d"))) 
 
 ## first, get residual (difference from expectation given date, GMrat, age)
 yhat <- unname(predict(gam.model,this.met))
-e <- this.met$GABA.Cr - yhat
+e <- this.met$NAAG.Cr - yhat
 
 this.met <- this.met %>% mutate(dateNumeric = meandate)
 this.met <- this.met %>% mutate(dateNumeric = as.numeric(gsub("-","",dateNumeric)))
 ## now, predict @ mean date (but with real age & GMrat) and add back in residual
-this.met$GABA.Cr.adj <- unname(predict(gam.model, this.met)) + e
+this.met$NAAG.Cr.adj <- unname(predict(gam.model, this.met)) + e
 
-ggplot(data = this.met, aes(x = GABA.Cr, y = GABA.Cr.adj, color=as.factor(hemi), shape=as.factor(timepoint))) +
+ggplot(data = this.met, aes(x = NAAG.Cr, y = NAAG.Cr.adj, color=as.factor(hemi), shape=as.factor(timepoint))) +
   geom_point() +
   stat_smooth(method='lm', alpha=0.2) +
   geom_abline(slope=1, intercept = 0, linetype=2) +

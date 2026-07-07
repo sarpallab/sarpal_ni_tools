@@ -44,7 +44,11 @@ setwd(basedir)
 if (reload_new_20260706 == T){
   load('20260706-gamadj-HC.Rdata') # loads met_out1
   hc <- met_out1
+  hc_mike <- read_excel('13MP20200207_LCMv2fixidx_Mike.xlsx') %>% separate_wider_delim(cols = RECID, delim = "_", names = c('id','date'))
   rm(met_out1)
+  hc <- hc %>% filter(id %in% hc_mike$id)
+  
+  
   gc()
   load('20260706-SSD-gamadj.Rdata') # loads sz_met_out
   ssd <- sz_met_out %>% group_by(RECID,timepoint,region,metabolite) %>% slice(1) %>% ungroup()
@@ -186,7 +190,7 @@ if (reload_new_20260706 == T){
                                       Glu >= 5*mean(Glu,na.rm=T) ~ NA))
   df <- df %>% mutate(NAAG = case_when(NAAG <5*mean(NAAG,na.rm=T) ~ NAAG,
                                        NAAG >= 5*mean(NAAG,na.rm=T) ~ NA))
-  df <- df %>% mutate(NAAG = case_when(NAA < 5*mean(NAA,na.rm=T) ~ NAA,
+  df <- df %>% mutate(NAA = case_when(NAA < 5*mean(NAA,na.rm=T) ~ NAA,
                                        NAA >= 5*mean(NAA,na.rm=T) ~ NA))
   df <- df %>% mutate(mI = case_when(mI < 5*mean(mI,na.rm=T) ~ mI,
                                        mI >= 5*mean(mI,na.rm=T) ~ NA))
@@ -1031,11 +1035,11 @@ if (group==T){
   pairs(emm,adjust = "fdr")
   
   # examine emmeans, yes there is more in L in HC and more in R in SZ
-  # MThNAAG <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))
-  # emm <- emmeans(MThNAAG, ~ hemi | group_level, data = df %>% filter(roi == 'Thalamus'))
-  # # Convert to data frame
-  # emm_df <- as.data.frame(emm)
-  # pairs(emm,adjust = "fdr")
+  MThNAAG <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThNAAG, ~ hemi | group_level, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
   
   # examine emmeans
   MThNAA <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
