@@ -127,8 +127,61 @@ if (reload_new_20260706 == T){
                                       region == 'L Thalamus' ~ 'L Thalamus',
                                       region == 'left thalamus' ~ 'L Thalamus'))
   df <- df %>% dplyr::mutate(hemi = str_sub(roi, 1,1),roi = str_sub(roi, 3, -1))
+  
+  
+  # this sheet has NaN that were manually removed by Mike.  These NaN's need to be re-inserted into the GAM model outputs, which seems to have interpolated over the NaNs
+  
+  sz_mets <- c('Cre','GABA/Cre', 'Glu/Cre', 'Gln/Cre','Glc/Cre','mI/Cre','NAA/Cre', 'Glu.Gln/Cre', 'NAAG/Cre', 'GPC/Cre', 'GPC.Cho/Cre')
+  ssdna <- read_excel('sarpal_mrsi_original_07062026.xlsx') %>% select(RECID,timepoint,region,all_of(sz_mets)) 
+  ssdna <- ssdna %>% mutate(region = case_when(region == 'R Caudate' ~ 'R Caudate',
+                                               region == 'right caudate' ~ 'R Caudate',
+                                               region == 'L Caudate' ~ 'L Caudate',
+                                               region == 'left caudate' ~ 'L Caudate',
+                                               region == 'R Thalamus' ~ 'R Thalamus',
+                                               region == 'right thalamus' ~ 'R Thalamus',
+                                               region == 'L Thalamus' ~ 'L Thalamus',
+                                               region == 'left thalamus' ~ 'L Thalamus'))
+  
+  ssdna <- ssdna %>% arrange(RECID,timepoint,region)
+  
+  na_indices_GABA <- which(is.na(as.numeric(ssdna$`GABA/Cre`)), arr.ind = TRUE)
+  na_indices_Glu <- which(is.na(as.numeric(ssdna$`Glu/Cre`)), arr.ind = TRUE)  
+  na_indices_Gln <- which(is.na(as.numeric(ssdna$`Gln/Cre`)), arr.ind = TRUE)
+  na_indices_Glc <- which(is.na(as.numeric(ssdna$`Glc/Cre`)), arr.ind = TRUE)
+  na_indices_mI <- which(is.na(as.numeric(ssdna$`mI/Cre`)), arr.ind = TRUE)
+  na_indices_NAA <- which(is.na(as.numeric(ssdna$`NAA/Cre`)), arr.ind = TRUE)
+  na_indices_Glu.Gln <- which(is.na(as.numeric(ssdna$`Glu.Gln/Cre`)), arr.ind = TRUE)
+  na_indices_NAAG <- which(is.na(as.numeric(ssdna$`NAAG/Cre`)), arr.ind = TRUE)
+  na_indices_GPC <- which(is.na(as.numeric(ssdna$`GPC/Cre`)), arr.ind = TRUE)
+  na_indices_GPC.Cho <- which(is.na(as.numeric(ssdna$`GPC.Cho/Cre`)), arr.ind = TRUE)
+
+  dfssd <- df %>% filter(group_level == 'SZ') %>% arrange(id,timepoint,roi)
+  dfhc <- df %>% filter(group_level == 'HC')
+  
+  dfssd$GABA.Cr_gamadj[na_indices_GABA] = NA
+  dfssd$Glu.Cr_gamadj[na_indices_Glu] = NA
+  dfssd$Gln.Cr_gamadj[na_indices_Gln] = NA
+  dfssd$Glc.Cr_gamadj[na_indices_Glc] = NA
+  dfssd$mI.Cr_gamadj[na_indices_mI] = NA
+  dfssd$NAA.Cr_gamadj[na_indices_NAA] = NA
+  dfssd$Glu.Gln.Cr_gamadj[na_indices_Glu.Gln] = NA
+  dfssd$GPC.Cr_gamadj[na_indices_GPC] = NA
+  dfssd$GPC.Cho.Cr_gamadj[na_indices_GPC.Cho] = NA
+  # testing 2/3 rule (2/3 of data is NA => exclude metabolite)
+  
+  df <- rbind(dfssd,dfhc)
+  
+  test_in <- df %>% 
+    group_by(roi, group_level, timepoint,hemi) %>% 
+    summarize(
+      N = n_distinct(id),
+      # Use lowercase n() and make sure 'gamadj' matches your column names exactly
+      across(contains('gamadj'), ~ sum(is.na(.)) / n()), 
+      .groups = "drop" # Replaces the need for a separate ungroup()
+    )
+  
   df <- df %>% 
-    group_by(roi, group_level, timepoint) %>% 
+    group_by(roi, group_level, timepoint,hemi) %>% 
     mutate(across(
       contains("gamadj"), 
       ~ case_when(
@@ -137,6 +190,16 @@ if (reload_new_20260706 == T){
       )
     )) %>% 
     ungroup()
+  
+  test_out <- df %>% 
+    group_by(roi, group_level, timepoint,hemi) %>% 
+    summarize(
+      N = n_distinct(id),
+      # Use lowercase n() and make sure 'gamadj' matches your column names exactly
+      across(contains('gamadj'), ~ sum(is.na(.)) / n()), 
+      .groups = "drop" # Replaces the need for a separate ungroup()
+    )
+  
   df <- df %>% dplyr::rename(id = 'id',GPC = 'GPC.Cr_gamadj',Glu = 'Glu.Cr_gamadj',GPC.Cho = 'GPC.Cho.Cr_gamadj',Glc = 'Glc.Cr_gamadj',GABA = 'GABA.Cr_gamadj',NAA = 'NAA.Cr_gamadj',mI = 'mI.Cr_gamadj',Gln = 'Gln.Cr_gamadj',NAAG = 'NAAG.Cr_gamadj',Glu.Gln = 'Glu.Gln.Cr_gamadj')
   
   df <- df %>% filter(age >= 18)
