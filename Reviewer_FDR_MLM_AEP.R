@@ -1046,7 +1046,14 @@ if (group==T){
   
   # examine emmeans
   MThmI <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))
-  emm <- emmeans(MThmI, ~ hemi | group_level, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  emm <- emmeans(MThmI, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MCamI <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MCamI, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
@@ -1072,6 +1079,20 @@ if (group==T){
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
    
+  # examine emmeans
+  MCaNAA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MCaNAA, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MCaNAA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MCaNAA, ~ hemi | group_level, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
   # examine emmeans
   MThNAAG <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(MThNAAG, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
@@ -1450,6 +1471,52 @@ if (eibalance){
   dfw <- df %>% pivot_wider(id_cols = id, names_from = c('group_level','roi','timepoint','hemi'), values_from = c('GMrat','Glu','GPC','GABA','NAA','mI','Gln','NAAG','Glu.Gln'))
   dfw <- as.data.frame(dfw)
   
+  a <- as.numeric(unlist(dfw$NAA_HC_Caudate_BL_R))
+  b <- as.numeric(unlist(dfw$GPC_HC_Caudate_BL_R))
+  c <- as.numeric(unlist(dfw$NAA_SZ_Caudate_BL_R))
+  d <- as.numeric(unlist(dfw$GPC_SZ_Caudate_BL_R))
+  
+  a1 <- a[!is.na(a) & !is.na(b)]
+  b1 <- b[!is.na(a) & !is.na(b)]
+  c1 <- c[!is.na(c) & !is.na(d)]
+  d1 <- d[!is.na(c) & !is.na(d)]
+  
+  hc <- data.frame()
+  
+  dfw <- list(HC = data.frame(NAA_HC_Caudate = a1, GPC_HC_Caudate = b1), 
+              SZ = data.frame(NAA_SZ_Caudate = c1, GPC_SZ_Caudate = d1))
+  
+  ccCa <- cocor(~NAA_HC_Caudate + GPC_HC_Caudate | NAA_SZ_Caudate + GPC_SZ_Caudate, dfw, alternative = 'two.sided')
+  
+  
+  dfw <- df %>% pivot_wider(id_cols = id, names_from = c('group_level','roi','timepoint','hemi'), values_from = c('GMrat','Glu','GPC','GABA','NAA','mI','Gln','NAAG','Glu.Gln'))
+  dfw <- as.data.frame(dfw)
+  
+  a <- as.numeric(unlist(dfw$NAA_HC_Thalamus_BL_R))
+  b <- as.numeric(unlist(dfw$GPC_HC_Thalamus_BL_R))
+  c <- as.numeric(unlist(dfw$NAA_SZ_Thalamus_BL_R))
+  d <- as.numeric(unlist(dfw$GPC_SZ_Thalamus_BL_R))
+  
+  a1 <- a[!is.na(a) & !is.na(b)]
+  b1 <- b[!is.na(a) & !is.na(b)]
+  c1 <- c[!is.na(c) & !is.na(d)]
+  d1 <- d[!is.na(c) & !is.na(d)]
+  
+  hc <- data.frame()
+  
+  dfw <- list(HC = data.frame(Glu_HC_Thalamus = a1, GABA_HC_Thalamus = b1), 
+              SZ = data.frame(Glu_SZ_Thalamus = c1, GABA_SZ_Thalamus = d1))
+  
+  ccTh <- cocor(~Glu_HC_Thalamus + GABA_HC_Thalamus | Glu_SZ_Thalamus + GABA_SZ_Thalamus, dfw, alternative = 'two.sided')
+  
+  
+  ##################
+  ### Left ########
+  ##################
+  
+  dfw <- df %>% pivot_wider(id_cols = id, names_from = c('group_level','roi','timepoint','hemi'), values_from = c('GMrat','Glu','GPC','GABA','NAA','mI','Gln','NAAG','Glu.Gln'))
+  dfw <- as.data.frame(dfw)
+  
   a <- as.numeric(unlist(dfw$NAA_HC_Caudate_BL_L))
   b <- as.numeric(unlist(dfw$GPC_HC_Caudate_BL_L))
   c <- as.numeric(unlist(dfw$NAA_SZ_Caudate_BL_L))
@@ -1468,13 +1535,13 @@ if (eibalance){
   ccCa <- cocor(~NAA_HC_Caudate + GPC_HC_Caudate | NAA_SZ_Caudate + GPC_SZ_Caudate, dfw, alternative = 'two.sided')
   
   
-  dfw <- df %>% pivot_wider(id_cols = id, names_from = c('group_level','roi','timepoint'), values_from = c('GMrat','Glu','GPC','GABA','NAA','mI','Gln','NAAG','Glu.Gln'))
+  dfw <- df %>% pivot_wider(id_cols = id, names_from = c('group_level','roi','timepoint','hemi'), values_from = c('GMrat','Glu','GPC','GABA','NAA','mI','Gln','NAAG','Glu.Gln'))
   dfw <- as.data.frame(dfw)
   
-  a <- as.numeric(unlist(dfw$NAA_HC_Thalamus_BL))
-  b <- as.numeric(unlist(dfw$GPC_HC_Thalamus_BL))
-  c <- as.numeric(unlist(dfw$NAA_SZ_Thalamus_BL))
-  d <- as.numeric(unlist(dfw$GPC_SZ_Thalamus_BL))
+  a <- as.numeric(unlist(dfw$NAA_HC_Thalamus_BL_L))
+  b <- as.numeric(unlist(dfw$GPC_HC_Thalamus_BL_L))
+  c <- as.numeric(unlist(dfw$NAA_SZ_Thalamus_BL_L))
+  d <- as.numeric(unlist(dfw$GPC_SZ_Thalamus_BL_L))
   
   a1 <- a[!is.na(a) & !is.na(b)]
   b1 <- b[!is.na(a) & !is.na(b)]
@@ -1487,7 +1554,6 @@ if (eibalance){
               SZ = data.frame(Glu_SZ_Thalamus = c1, GABA_SZ_Thalamus = d1))
   
   ccTh <- cocor(~Glu_HC_Thalamus + GABA_HC_Thalamus | Glu_SZ_Thalamus + GABA_SZ_Thalamus, dfw, alternative = 'two.sided')
-  
   
   #######################
   #### NAA NAAG ratio ###
