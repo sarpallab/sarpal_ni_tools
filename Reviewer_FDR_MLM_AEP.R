@@ -13,7 +13,7 @@ library(emmeans)
 library(DescTools)
 library(ggrepel)
 
-reload_new_20260706 = F # 2026-07-06 reload after redoing gamadj models AndyP
+reload_new_20260706 = T # 2026-07-06 reload after redoing gamadj models AndyP
 reload_new = F # 2026-07-02 post redoing GM
 # same as reload, but loads in non gam-adjusted metabolites, can merge with reload df manually
 # also does group analyses with non-gam-adjusted metabolites
@@ -21,10 +21,10 @@ reload_new = F # 2026-07-02 post redoing GM
 reload = F
 reload_check_GM = F
 longitudinal = F
-group = F
+group = T
 hilowdoi = F
 eibalance = F
-group_r_nr = T
+group_r_nr = F
 # will reload just Sarpal / CZ data
 clinical = F
 handedness_group = F
@@ -36,9 +36,9 @@ handedness_group = F
 # includes all ROI-by-metabolite tests within each type of analysis, and report whether the main findings remain significant.
 
 # macbook
-#basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
+basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
 # macmini
-basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
+#basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
 setwd(basedir)
 
 if (reload_new_20260706 == T){
@@ -67,6 +67,8 @@ if (reload_new_20260706 == T){
   ssd <- inner_join(ssd,sd,by='RECID')
   
   # get GMrat
+  # note that Mike used 
+  
   ssdgm <- read_excel('sarpal_mrsi_original_07062026.xlsx') %>% select(RECID,timepoint,region,GMrat) %>% group_by(RECID,timepoint,region) %>% slice(1) %>% ungroup()
   ssdgm <- ssdgm %>% mutate(region = case_when(region == 'R Caudate' ~ 'R Caudate',
                                                  region == 'right caudate' ~ 'R Caudate',
@@ -130,9 +132,12 @@ if (reload_new_20260706 == T){
   
   
   # this sheet has NaN that were manually removed by Mike.  These NaN's need to be re-inserted into the GAM model outputs, which seems to have interpolated over the NaNs
-  
+  # check that values are identical for both BL and BL/FU groups
   sz_mets <- c('Cre','GABA/Cre', 'Glu/Cre', 'Gln/Cre','Glc/Cre','mI/Cre','NAA/Cre', 'Glu.Gln/Cre', 'NAAG/Cre', 'GPC/Cre', 'GPC.Cho/Cre')
-  ssdna <- read_excel('sarpal_mrsi_original_07062026.xlsx') %>% select(RECID,timepoint,region,all_of(sz_mets)) 
+  ndistinct <- read_excel('sarpal_mrsi_original_07062026.xlsx') %>% select(RECID,timepoint,region,GMrat) %>% group_by(RECID,timepoint,region) %>% 
+    summarize(nD1 = n_distinct('GABA/Cre'),nD2 = n_distinct('Glu/Cre'),nD3 = n_distinct('Gln/Cre'),nD4 = n_distinct('Glc/Cre'),nD5 = n_distinct('mI/Cre'),nD6 = n_distinct('NAA/Cre'),nD7 = n_distinct('Glu.Gln/Cre'),nD8 = n_distinct('NAAG/Cre'),nD9 = n_distinct('GPC/Cre'),nD10 = n_distinct('GPC.Cho/Cre')) %>% ungroup()
+  # all nD values are == 1, so we are good.
+  ssdna <- read_excel('sarpal_mrsi_original_07062026.xlsx') %>% select(RECID,timepoint,region,all_of(sz_mets)) %>% group_by(RECID,timepoint,region) %>% slice(1) %>% ungroup()
   ssdna <- ssdna %>% mutate(region = case_when(region == 'R Caudate' ~ 'R Caudate',
                                                region == 'right caudate' ~ 'R Caudate',
                                                region == 'L Caudate' ~ 'L Caudate',
