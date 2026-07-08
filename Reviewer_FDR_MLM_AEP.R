@@ -13,7 +13,7 @@ library(emmeans)
 library(DescTools)
 library(ggrepel)
 
-reload_new_20260706 = T # 2026-07-06 reload after redoing gamadj models AndyP
+reload_new_20260706 = F # 2026-07-06 reload after redoing gamadj models AndyP
 reload_new = F # 2026-07-02 post redoing GM
 # same as reload, but loads in non gam-adjusted metabolites, can merge with reload df manually
 # also does group analyses with non-gam-adjusted metabolites
@@ -21,10 +21,10 @@ reload_new = F # 2026-07-02 post redoing GM
 reload = F
 reload_check_GM = F
 longitudinal = F
-group = F
+group = T
 hilowdoi = F
 eibalance = F
-group_r_nr = T
+group_r_nr = F
 # will reload just Sarpal / CZ data
 clinical = F
 handedness_group = F
@@ -36,9 +36,9 @@ handedness_group = F
 # includes all ROI-by-metabolite tests within each type of analysis, and report whether the main findings remain significant.
 
 # macbook
-basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
+#basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
 # macmini
-#basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
+basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
 setwd(basedir)
 
 if (reload_new_20260706 == T){
@@ -67,7 +67,7 @@ if (reload_new_20260706 == T){
   ssd <- inner_join(ssd,sd,by='RECID')
   
   # get GMrat
-  ssdgm <- read_excel('sarpal_mrsi_original_07062026.xlsx') %>% select(RECID,timepoint,region,GMrat)
+  ssdgm <- read_excel('sarpal_mrsi_original_07062026.xlsx') %>% select(RECID,timepoint,region,GMrat) %>% group_by(RECID,timepoint,region) %>% slice(1) %>% ungroup()
   ssdgm <- ssdgm %>% mutate(region = case_when(region == 'R Caudate' ~ 'R Caudate',
                                                  region == 'right caudate' ~ 'R Caudate',
                                                  region == 'L Caudate' ~ 'L Caudate',
@@ -141,7 +141,7 @@ if (reload_new_20260706 == T){
   
   df <- df %>% filter(age >= 18)
   
-  df <- df %>% group_by(id) %>% mutate(nsess = 1:n()) %>%
+  df <- df %>% group_by(id,roi,hemi) %>% mutate(nsess = 1:n()) %>%
     ungroup()
   
   df$timepoint <- as.numeric(df$timepoint)
@@ -151,7 +151,7 @@ if (reload_new_20260706 == T){
   df <- df %>% group_by(id) %>% arrange(nsess) %>% 
     mutate(timepoint1 = case_when(nsess == 1 ~ 'BL',
                                   nsess == 2 ~ 'FU',
-                                  nsess > 3 ~ 'discard')
+                                  nsess >= 3 ~ 'discard')
     )
   df <- df %>% filter(timepoint1 != 'discard') %>%
     select(!timepoint) %>% rename(timepoint = timepoint1)
@@ -191,18 +191,18 @@ if (reload_new_20260706 == T){
   )
   df$median_split_doi[df$id == "2695"] = 'low'
   
-  df <- df %>% mutate(Glu = case_when(Glu < 5*mean(Glu,na.rm=T) ~ Glu,
-                                      Glu >= 5*mean(Glu,na.rm=T) ~ NA))
-  df <- df %>% mutate(NAAG = case_when(NAAG <5*mean(NAAG,na.rm=T) ~ NAAG,
-                                       NAAG >= 5*mean(NAAG,na.rm=T) ~ NA))
-  df <- df %>% mutate(NAA = case_when(NAA < 5*mean(NAA,na.rm=T) ~ NAA,
-                                       NAA >= 5*mean(NAA,na.rm=T) ~ NA))
-  df <- df %>% mutate(mI = case_when(mI < 5*mean(mI,na.rm=T) ~ mI,
-                                       mI >= 5*mean(mI,na.rm=T) ~ NA))
-  df <- df %>% mutate(Glu.Gln = case_when(Glu.Gln < 5*mean(Glu.Gln,na.rm=T) ~ Glu.Gln,
-                                       Glu.Gln >= 5*mean(Glu.Gln,na.rm=T) ~ NA))
+  # df <- df %>% mutate(Glu = case_when(Glu < 5*mean(Glu,na.rm=T) ~ Glu,
+  #                                     Glu >= 5*mean(Glu,na.rm=T) ~ NA))
+  # df <- df %>% mutate(NAAG = case_when(NAAG <5*mean(NAAG,na.rm=T) ~ NAAG,
+  #                                      NAAG >= 5*mean(NAAG,na.rm=T) ~ NA))
+  # df <- df %>% mutate(NAA = case_when(NAA < 5*mean(NAA,na.rm=T) ~ NAA,
+  #                                      NAA >= 5*mean(NAA,na.rm=T) ~ NA))
+  # df <- df %>% mutate(mI = case_when(mI < 5*mean(mI,na.rm=T) ~ mI,
+  #                                      mI >= 5*mean(mI,na.rm=T) ~ NA))
+  # df <- df %>% mutate(Glu.Gln = case_when(Glu.Gln < 5*mean(Glu.Gln,na.rm=T) ~ Glu.Gln,
+  #                                      Glu.Gln >= 5*mean(Glu.Gln,na.rm=T) ~ NA))
   
-  df <- df %>% select(!Glc) # No Gln data in SSD
+  df <- df %>% select(!Glc) # No Glc data in SSD
   df0 <- df %>% group_by(group_level,id) %>% slice(1) %>% ungroup() %>% group_by(group_level) %>% summarize(mA = mean(age, na.rm=TRUE), sA = sd(age,na.rm=TRUE), N= n()) %>% ungroup()
   dfbprs <- df %>% filter(group_level == 'SZ') %>% group_by(id,timepoint) %>% slice(1) %>% ungroup() %>% group_by(timepoint) %>% summarize(mbprs = mean(POSSX,na.rm=TRUE), sbprs = sd(POSSX,na.rm=TRUE)) %>% ungroup()
   
