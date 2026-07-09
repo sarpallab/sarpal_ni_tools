@@ -12,8 +12,9 @@ library(cocor)
 library(emmeans)
 library(DescTools)
 library(ggrepel)
+library(ggsignif)
 
-reload_new_20260706 = F # 2026-07-06 reload after redoing gamadj models AndyP
+reload_new_20260706 = T # 2026-07-06 reload after redoing gamadj models AndyP
 reload_new = F # 2026-07-02 post redoing GM
 # same as reload, but loads in non gam-adjusted metabolites, can merge with reload df manually
 # also does group analyses with non-gam-adjusted metabolites
@@ -26,8 +27,9 @@ group = F
 eibalance = F
 group_r_nr = F
 # will reload just Sarpal / CZ data
-clinical = T
+clinical = F
 handedness_group = F
+Figure_3 = T
 
 #The manuscript states that FDR correction was performed by accounting for metabolites within each ROI. 
 # However, the statistical inference and biological interpretation are made across three ROIs. 
@@ -36,10 +38,12 @@ handedness_group = F
 # includes all ROI-by-metabolite tests within each type of analysis, and report whether the main findings remain significant.
 
 # macbook
-# basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
+ basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
 # macmini
-basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
+#basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
 setwd(basedir)
+
+#df <- read_csv('20260708-final-dataset-MRSI-2.csv')
 
 if (reload_new_20260706 == T){
   load('20260706-gamadj-HC.Rdata') # loads met_out1
@@ -1082,6 +1086,13 @@ if (group==T){
   pairs(emm,adjust = "fdr")
 
   # examine emmeans
+  MCaGPC.Cho <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'),  GPC.Cho ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MCaGPC.Cho, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
   MCaGABA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GABA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(MCaGABA, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
   # Convert to data frame
@@ -2014,4 +2025,513 @@ if (handedness_group == T){
   # Convert to data frame
   emm_dfR <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+}
+
+if (Figure_3){
+  
+  secondary_mets <- c('GPC','NAAG','GPC.Cho','mI','NAA')
+  primary_mets <- c('Glu','GABA','Glu.Gln')
+  
+  
+  dodge_width = 0.8
+  df <- df %>% select(id,group_level,GMrat,GPC,Glu,GPC.Cho,GABA,NAA,mI,Gln,NAAG,Glu.Gln,roi,hemi,timepoint)
+  dfL <- df %>% filter(timepoint == 'BL') %>% pivot_longer(cols = c('GMrat','GPC','Glu','GPC.Cho','GABA','NAA','mI','Gln','NAAG','Glu.Gln'))
+  dfL <- dfL %>% filter(name != 'Gln' & name != 'GMrat')
+  dfL$Group <- dfL$group_level
+  
+  ####### Left Caudate Primary Metabolites ########
+  pdf('Figure_3A_L_Caudate_Primary.pdf',height=4, width = 4)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% secondary_mets) & hemi == 'L'), aes(x = name, y = value, color = Group)) + 
+    geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
+                size = 0.8, alpha = 0.8) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
+    geom_signif(
+      color = "black",
+      textsize = 6,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 1 - (dodge_width / 4),  # Centers on the left bar (approx 0.8)
+      xmax = 1 + (dodge_width / 4),  # Centers on the right bar (approx 1.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "***",              # Custom text or star
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 2 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 2 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 3 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 3 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) + theme_minimal() +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
+  ####### Right Caudate Primary Metabolites ########
+  pdf('Figure_3B_R_Caudate_Primary.pdf',height=4, width = 4)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% secondary_mets) & hemi == 'R'), aes(x = name, y = value, color = Group)) + 
+    geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
+                size = 0.8, alpha = 0.8) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
+    geom_signif(
+      color = "black",
+      textsize = 6,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 1 - (dodge_width / 4),  # Centers on the left bar (approx 0.8)
+      xmax = 1 + (dodge_width / 4),  # Centers on the right bar (approx 1.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "**",              # Custom text or star
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 6,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 2 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 2 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "*",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 6,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 3 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 3 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "***",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) + theme_minimal() +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
+  ####### Left Thalamus Primary Metabolites ########
+  pdf('Figure_3C_L_Thalamus_Primary.pdf',height=4, width = 4)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% secondary_mets) & hemi == 'L'), aes(x = name, y = value, color = Group)) + 
+    geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
+                size = 0.8, alpha = 0.8) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
+    geom_signif(
+      color = "black",
+      textsize = 6,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 1 - (dodge_width / 4),  # Centers on the left bar (approx 0.8)
+      xmax = 1 + (dodge_width / 4),  # Centers on the right bar (approx 1.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "*",              # Custom text or star
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 2 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 2 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 3 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 3 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) + theme_minimal() +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
+  ####### Right Thalamus Primary Metabolites ########
+  pdf('Figure_3D_R_Thalamus_Primary.pdf',height=4, width = 4)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% secondary_mets) & hemi == 'R'), aes(x = name, y = value, color = Group)) + 
+    geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
+                size = 0.8, alpha = 0.8) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 1 - (dodge_width / 4),  # Centers on the left bar (approx 0.8)
+      xmax = 1 + (dodge_width / 4),  # Centers on the right bar (approx 1.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",              # Custom text or star
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 2 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 2 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 6,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 3 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 3 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "**",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) + theme_minimal() +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
+  
+  ####### Left Caudate Secondary Metabolites ########
+  pdf('Figure_3E_L_Caudate_Secondary.pdf',height=4, width = 4)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% primary_mets) & !name == 'NAAG' & hemi == 'L'), aes(x = name, y = value, color = Group)) + 
+    geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
+                size = 0.8, alpha = 0.8) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
+    geom_signif(
+      color = "black",
+      textsize = 6,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 1 - (dodge_width / 4),  # Centers on the left bar (approx 0.8)
+      xmax = 1 + (dodge_width / 4),  # Centers on the right bar (approx 1.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "*",              # Custom text or star
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 2 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 2 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 3 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 3 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 4 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 4 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) + theme_minimal() +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
+  ####### Right Caudate Secondary Metabolites ########
+  pdf('Figure_3F_R_Caudate_Secondary.pdf',height=4, width = 4)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% primary_mets) & !name == 'NAAG' & hemi == 'R'), aes(x = name, y = value, color = Group)) + 
+    geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
+                size = 0.8, alpha = 0.8) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
+    geom_signif(
+      color = "black",
+      textsize = 6,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 1 - (dodge_width / 4),  # Centers on the left bar (approx 0.8)
+      xmax = 1 + (dodge_width / 4),  # Centers on the right bar (approx 1.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "*",              # Custom text or star
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 2 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 2 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 3 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 3 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 4 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 4 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) + theme_minimal() +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
+  ####### Left Thalamus Secondary Metabolites ########
+  pdf('Figure_3G_L_Thalamus_Secondary.pdf',height=4, width = 4)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% primary_mets) & name != 'GPC' & hemi == 'L'), aes(x = name, y = value, color = Group)) + 
+    geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
+                size = 0.8, alpha = 0.8) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
+    geom_signif(
+      color = "black",
+      textsize = 6,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 1 - (dodge_width / 4),  # Centers on the left bar (approx 0.8)
+      xmax = 1 + (dodge_width / 4),  # Centers on the right bar (approx 1.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "*",              # Custom text or star
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 2 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 2 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 3 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 3 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 4 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 4 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 5 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 5 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) + theme_minimal() +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
+  ####### Right Thalamus Secondary Metabolites ########
+  pdf('Figure_3H_R_Thalamus_Secondary.pdf',height=4, width = 4)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% primary_mets) & name != 'GPC' & hemi == 'R'), aes(x = name, y = value, color = Group)) + 
+    geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
+                size = 0.8, alpha = 0.8) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
+    geom_signif(
+      color = "black",
+      textsize = 6,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 1 - (dodge_width / 4),  # Centers on the left bar (approx 0.8)
+      xmax = 1 + (dodge_width / 4),  # Centers on the right bar (approx 1.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "*",              # Custom text or star
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 2 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 2 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 3 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 3 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 4 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 4 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    ) +
+    
+    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
+    geom_signif(
+      color = "black",
+      textsize = 4,          # Optional: Adjusts text size of the labels
+      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
+      xmin = 5 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
+      xmax = 5 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
+      y_position = 2.5,               # Height of the bracket
+      annotation = "N.S.",
+      vjust = -0.5,
+      tip_length = 0.03
+    )  + theme_minimal() +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
 }
