@@ -29,7 +29,8 @@ group_r_nr = F
 # will reload just Sarpal / CZ data
 clinical = F
 handedness_group = F
-Figure_3 = T
+Figure_3 = F
+Creatine_Check  = T
 
 #The manuscript states that FDR correction was performed by accounting for metabolites within each ROI. 
 # However, the statistical inference and biological interpretation are made across three ROIs. 
@@ -123,7 +124,7 @@ if (reload_new_20260706 == T){
                                             timepoint == 3 ~ 'extra'))
   df <- full_join(df,supplemental_data2,by=c('id','timepoint'))
   df$doi_m <- df$`DUP (months)`
-  df <- df %>% dplyr::select(id,doi_m,region,group_level,timepoint,age,sex,POSSX,Remitter_Status,GMrat,GPC.Cr_gamadj,Glc.Cr_gamadj,Glu.Cr_gamadj,GPC.Cho.Cr_gamadj,GABA.Cr_gamadj,NAA.Cr_gamadj,mI.Cr_gamadj,Gln.Cr_gamadj,NAAG.Cr_gamadj,Glu.Gln.Cr_gamadj)
+  df <- df %>% dplyr::select(id,doi_m,Cr_gamadj, region,group_level,timepoint,age,sex,POSSX,Remitter_Status,GMrat,GPC.Cr_gamadj,Glc.Cr_gamadj,Glu.Cr_gamadj,GPC.Cho.Cr_gamadj,GABA.Cr_gamadj,NAA.Cr_gamadj,mI.Cr_gamadj,Gln.Cr_gamadj,NAAG.Cr_gamadj,Glu.Gln.Cr_gamadj)
   df <- df %>% mutate(roi = case_when(region == 'R Caudate' ~ 'R Caudate',
                                       region == 'right caudate' ~ 'R Caudate',
                                       region == 'L Caudate' ~ 'L Caudate',
@@ -2040,11 +2041,11 @@ if (Figure_3){
   dfL$Group <- dfL$group_level
   
   ####### Left Caudate Primary Metabolites ########
-  pdf('Figure_3A_L_Caudate_Primary.pdf',height=4, width = 4)
+  pdf('Figure_3A_L_Caudate_Primary.pdf',height=4, width = 5)
   gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% secondary_mets) & hemi == 'L'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
@@ -2092,11 +2093,11 @@ if (Figure_3){
   dev.off()
   
   ####### Right Caudate Primary Metabolites ########
-  pdf('Figure_3B_R_Caudate_Primary.pdf',height=4, width = 4)
+  pdf('Figure_3B_R_Caudate_Primary.pdf',height=4, width = 5)
   gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% secondary_mets) & hemi == 'R'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
@@ -2118,7 +2119,6 @@ if (Figure_3){
       xmax = 2 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
       y_position = 2.5,               # Height of the bracket
       annotation = "*",
-      vjust = -0.5,
       tip_length = 0.03
     ) +
     
@@ -2131,7 +2131,6 @@ if (Figure_3){
       xmax = 3 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
       y_position = 2.5,               # Height of the bracket
       annotation = "***",
-      vjust = -0.5,
       tip_length = 0.03
     ) + theme_minimal() +
     theme(axis.text.y = element_text(size = 14),
@@ -2144,11 +2143,11 @@ if (Figure_3){
   dev.off()
   
   ####### Left Thalamus Primary Metabolites ########
-  pdf('Figure_3C_L_Thalamus_Primary.pdf',height=4, width = 4)
+  pdf('Figure_3C_L_Thalamus_Primary.pdf',height=4, width = 5)
   gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% secondary_mets) & hemi == 'L'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
@@ -2196,11 +2195,11 @@ if (Figure_3){
   dev.off()
   
   ####### Right Thalamus Primary Metabolites ########
-  pdf('Figure_3D_R_Thalamus_Primary.pdf',height=4, width = 4)
+  pdf('Figure_3D_R_Thalamus_Primary.pdf',height=4, width = 5)
   gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% secondary_mets) & hemi == 'R'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
@@ -2210,6 +2209,7 @@ if (Figure_3){
       xmax = 1 + (dodge_width / 4),  # Centers on the right bar (approx 1.2)
       y_position = 2.5,               # Height of the bracket
       annotation = "N.S.",              # Custom text or star
+      vjust = -0.5,
       tip_length = 0.03
     ) +
     
@@ -2235,7 +2235,6 @@ if (Figure_3){
       xmax = 3 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
       y_position = 2.5,               # Height of the bracket
       annotation = "**",
-      vjust = -0.5,
       tip_length = 0.03
     ) + theme_minimal() +
     theme(axis.text.y = element_text(size = 14),
@@ -2249,33 +2248,33 @@ if (Figure_3){
   
   
   ####### Left Caudate Secondary Metabolites ########
-  pdf('Figure_3E_L_Caudate_Secondary.pdf',height=4, width = 4)
+  pdf('Figure_3E_L_Caudate_Secondary.pdf',height=4, width = 7)
   gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% primary_mets) & !name == 'NAAG' & hemi == 'L'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
-      textsize = 6,          # Optional: Adjusts text size of the labels
+      textsize = 4,          # Optional: Adjusts text size of the labels
       linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
       xmin = 1 - (dodge_width / 4),  # Centers on the left bar (approx 0.8)
       xmax = 1 + (dodge_width / 4),  # Centers on the right bar (approx 1.2)
       y_position = 2.5,               # Height of the bracket
-      annotation = "*",              # Custom text or star
+      annotation = "N.S.",              # Custom text or star
+      vjust = -0.5,
       tip_length = 0.03
     ) +
     
     # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
     geom_signif(
       color = "black",
-      textsize = 4,          # Optional: Adjusts text size of the labels
+      textsize = 6,          # Optional: Adjusts text size of the labels
       linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
       xmin = 2 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
       xmax = 2 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
       y_position = 2.5,               # Height of the bracket
-      annotation = "N.S.",
-      vjust = -0.5,
+      annotation = "**",
       tip_length = 0.03
     ) +
     
@@ -2287,21 +2286,20 @@ if (Figure_3){
       xmin = 3 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
       xmax = 3 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
       y_position = 2.5,               # Height of the bracket
-      annotation = "N.S.",
-      vjust = -0.5,
+      annotation = "p=0.066",
+      vjust = -0.75,
       tip_length = 0.03
     ) +
     
     # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
     geom_signif(
       color = "black",
-      textsize = 4,          # Optional: Adjusts text size of the labels
+      textsize = 6,          # Optional: Adjusts text size of the labels
       linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
       xmin = 4 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
       xmax = 4 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
       y_position = 2.5,               # Height of the bracket
-      annotation = "N.S.",
-      vjust = -0.5,
+      annotation = "*",
       tip_length = 0.03
     ) + theme_minimal() +
     theme(axis.text.y = element_text(size = 14),
@@ -2314,11 +2312,11 @@ if (Figure_3){
   dev.off()
   
   ####### Right Caudate Secondary Metabolites ########
-  pdf('Figure_3F_R_Caudate_Secondary.pdf',height=4, width = 4)
+  pdf('Figure_3F_R_Caudate_Secondary.pdf',height=4, width = 7)
   gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% primary_mets) & !name == 'NAAG' & hemi == 'R'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
@@ -2379,11 +2377,11 @@ if (Figure_3){
   dev.off()
   
   ####### Left Thalamus Secondary Metabolites ########
-  pdf('Figure_3G_L_Thalamus_Secondary.pdf',height=4, width = 4)
+  pdf('Figure_3G_L_Thalamus_Secondary.pdf',height=4, width = 7)
   gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% primary_mets) & name != 'GPC' & hemi == 'L'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
@@ -2412,39 +2410,24 @@ if (Figure_3){
     # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
     geom_signif(
       color = "black",
-      textsize = 4,          # Optional: Adjusts text size of the labels
+      textsize = 6,          # Optional: Adjusts text size of the labels
       linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
       xmin = 3 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
       xmax = 3 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
       y_position = 2.5,               # Height of the bracket
-      annotation = "N.S.",
-      vjust = -0.5,
+      annotation = "***",
       tip_length = 0.03
     ) +
     
     # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
     geom_signif(
       color = "black",
-      textsize = 4,          # Optional: Adjusts text size of the labels
+      textsize = 6,          # Optional: Adjusts text size of the labels
       linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
       xmin = 4 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
       xmax = 4 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
       y_position = 2.5,               # Height of the bracket
-      annotation = "N.S.",
-      vjust = -0.5,
-      tip_length = 0.03
-    ) +
-    
-    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
-    geom_signif(
-      color = "black",
-      textsize = 4,          # Optional: Adjusts text size of the labels
-      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
-      xmin = 5 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
-      xmax = 5 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
-      y_position = 2.5,               # Height of the bracket
-      annotation = "N.S.",
-      vjust = -0.5,
+      annotation = "***",
       tip_length = 0.03
     ) + theme_minimal() +
     theme(axis.text.y = element_text(size = 14),
@@ -2457,20 +2440,21 @@ if (Figure_3){
   dev.off()
   
   ####### Right Thalamus Secondary Metabolites ########
-  pdf('Figure_3H_R_Thalamus_Secondary.pdf',height=4, width = 4)
+  pdf('Figure_3H_R_Thalamus_Secondary.pdf',height=4, width = 7)
   gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% primary_mets) & name != 'GPC' & hemi == 'R'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 1.5, fill = NA,fatten = 1) +
+    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
-      textsize = 6,          # Optional: Adjusts text size of the labels
+      textsize = 4,          # Optional: Adjusts text size of the labels
       linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
       xmin = 1 - (dodge_width / 4),  # Centers on the left bar (approx 0.8)
       xmax = 1 + (dodge_width / 4),  # Centers on the right bar (approx 1.2)
       y_position = 2.5,               # Height of the bracket
-      annotation = "*",              # Custom text or star
+      annotation = "N.S.",              # Custom text or star
+      vjust = -0.5,
       tip_length = 0.03
     ) +
     
@@ -2508,23 +2492,9 @@ if (Figure_3){
       xmin = 4 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
       xmax = 4 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
       y_position = 2.5,               # Height of the bracket
-      annotation = "N.S.",
-      vjust = -0.5,
+      annotation = "*",
       tip_length = 0.03
-    ) +
-    
-    # Bracket 2: Compare Control vs Treat INSIDE "Site B" (X = 2)
-    geom_signif(
-      color = "black",
-      textsize = 4,          # Optional: Adjusts text size of the labels
-      linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
-      xmin = 5 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
-      xmax = 5 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
-      y_position = 2.5,               # Height of the bracket
-      annotation = "N.S.",
-      vjust = -0.5,
-      tip_length = 0.03
-    )  + theme_minimal() +
+    ) + theme_minimal() +
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
           legend.text = element_text(size = 14),
@@ -2533,5 +2503,207 @@ if (Figure_3){
           axis.title.y = element_text(size = 16))
   print(gg1)
   dev.off()
+  
+}
+
+if (Creatine_Check){
+  
+  df$Cr_gamadj <- scale(Winsorize(df$Cr_gamadj, val = quantile(df$Cr_gamadj,probs = c(0.05,0.95),na.rm=TRUE)))
+  
+  MCrCa <- lmerTest::lmer(data= df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Cr_gamadj ~ group_level*hemi + scale(GMrat) + sex + (1|id))
+  MCrTh <- lmerTest::lmer(data= df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Cr_gamadj ~ group_level*hemi + scale(GMrat) + sex + (1|id))
+  
+  MCrCaL <- lmerTest::lmer(data= df %>% filter(roi == 'Caudate'), Cr_gamadj ~ condition*hemi + scale(GMrat) + sex + (1|id))
+  MCrThL <- lmerTest::lmer(data= df %>% filter(roi == 'Thalamus'), Cr_gamadj ~ condition*hemi + scale(GMrat) + sex + (1|id))
+  
+  emm <- emmeans(MCrCa, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  emm <- emmeans(MCrTh, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  emm <- emmeans(MCrCaL, ~ condition | hemi, data = df %>% filter(roi == 'Caudate'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  emm <- emmeans(MCrThL, ~ condition | hemi, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  
+  # 2026-06-04 Will need to add hemi eventually
+  ThGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu ~ group_level*hemi + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
+  ThGABA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), GABA ~ group_level*hemi + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
+  ThmI <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), mI ~ group_level*hemi + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
+  #ThGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Gln ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Gln')
+  ThGluGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu.Gln ~ group_level*hemi + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GluGln')
+  ThNAAG <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAAG ~ group_level*hemi + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
+  ThNAA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAA ~ group_level*hemi + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
+  # convergence issues in this lmer model, low variance at the subject level so just use lm
+  #ThGpc <- tidy(lm(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), GPC ~ group_level*hemi + scale(GMrat))) %>% mutate(metabolite = 'GPC')
+  #ThCho <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), GPC.Cho ~ group_level + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GPC.Cho')
+  Mth1 <- rbind(ThGlu,ThGABA,ThmI,ThGluGln,ThNAAG,ThNAA) %>% mutate(roi = 'Thalamus')
+  
+  
+  # CaGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
+  # CaGABA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GABA ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
+  # CamI <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
+  # #CaGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Gln')
+  # CaGluGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GluGln')
+  # #CaNAAG <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
+  # CaNAA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
+  # # convergence issues in this lmer model, low variance at the subject level so just use lm
+  # CaGpc <- tidy(lm(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GPC ~ group_level*hemi + sex + scale(GMrat))) %>% mutate(metabolite = 'GPC')
+  # CaCho <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GPC.Cho ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GPC.Cho')
+  # Mca1 <- rbind(CaGlu,CaGABA,CamI,CaGluGln,CaNAA,CaGpc,CaCho) %>% mutate(roi = 'Caudate')
+  # 
+  Mall_R_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr) %>% filter(pfdr < 0.05)
+  Mall_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr) %>% filter(pfdr < 0.05)
+  
+  
+  # examine emmeans
+  MCaGlu <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'),  Glu ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MCaGlu, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MCaGPC.Cho <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'),  GPC.Cho ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MCaGPC.Cho, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MCaGABA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GABA ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MCaGABA, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThGABA <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), GABA ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MThGABA, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThGlu <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MThGlu, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThGluGln <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MThGluGln, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThGluGln <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MThGluGln, ~ hemi | group_level, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThGluGln <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MThGluGln, ~ hemi | group_level, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThmI <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), mI ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MThmI, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MCamI <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), mI ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MCamI, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThNAAG <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAAG ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MThNAAG, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans, yes there is more in L in HC and more in R in SZ
+  MThNAAG <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAAG ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MThNAAG, ~ hemi | group_level, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThNAA <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAA ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MThNAA, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MCaNAA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAA ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MCaNAA, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MCaNAA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAA ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MCaNAA, ~ hemi | group_level, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThNAAG <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAAG ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MThNAAG, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MCamI <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), mI ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MCamI, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  # # Create a customized plot
+  # ggplot(emm_df, aes(x = group_level, y = emmean, color = hemi, group=hemi)) +
+  #   geom_point(size = 3) +
+  #   geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) +
+  #   theme_minimal() +
+  #   labs(title = "Model-Predicted Means by Group",
+  #        y = "Estimated Marginal Mean",
+  #        x = "Group")
+  MCaGluGln <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MCaGluGln, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  MCaGABA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GABA ~ group_level*hemi + sex + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MCaGABA, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
   
 }
