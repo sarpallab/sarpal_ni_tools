@@ -2508,6 +2508,71 @@ if (Figure_3){
 
 if (Creatine_Check){
   
+  
+  dg <- read_csv('13MP20200207_LCMv2fixidx_Raw.csv')
+  dg <- dg %>% separate_wider_delim(cols = ld8,delim="_",names=c("id","dateNumeric"),cols_remove=FALSE)
+  dg$dateNumeric <- as.numeric(dg$dateNumeric)
+  dg <- dg %>% group_by(id,visitnum,label) %>% slice(1) %>% ungroup()
+  dg <- dg %>% mutate(Cr = case_when(Cr.SD > 20 | Cr < 0.01 | Cr > 5*sd(Cr,na.rm=T) ~ NA_real_, TRUE ~ Cr))
+  dg <- dg %>% filter(age >= 18) %>%
+    filter(label %in% c('L Thalamus','R Thalamus','L Caudate','R Caudate')) %>% 
+                        group_by(id,label) %>% mutate(nsess = 1:n()) %>%
+             filter(nsess == 1) %>% mutate(timepoint = 'BL')
+  
+  # Match ROI names, create date value
+  dg <- dg %>% 
+    separate(label, c('hemi','roi'), ' ', convert=TRUE) %>%
+    mutate(roi = ifelse(roi == 'caudate', 'Caudate', roi)) %>%
+    mutate(roi = ifelse(roi == 'thalamus', 'Thalamus', roi)) %>%
+    mutate(hemi = ifelse(hemi=='L', 'L', ifelse(hemi=='R', 'R', NA))) %>% # Fixed here
+    mutate(region = paste0(hemi,' ', roi))
+  dg <- dg %>% select(id,roi,hemi,timepoint,Cr, Cr.SD)
+                      
+  # hc_mike <- read_excel('13MP20200207_LCMv2fixidx_Mike.xlsx') %>% separate_wider_delim(cols = RECID, delim = "_", names = c('id','date'))
+  # #rm(met_out1)
+  # Load SZ MRSI data
+  szmet_orig <- readxl::read_xlsx('sarpal_mrsi_original_07062026.xlsx', sheet = 1) %>%
+    rename(scan_date = Scan_date) %>% mutate(source = 'orig')
+  #szmet_orig <- szmet_orig %>% group_by(RECID) %>% separate_wider_delim(cols = region, delim = " ",names = c('hemisphere','roi'), cols_remove = TRUE,too_few = "align_start") %>% ungroup()
+  szmet_orig <- szmet_orig %>% rename(roi = 'region')
+  # Load SZ MRSI data
+  szmet_orig <- readxl::read_xlsx('sarpal_mrsi_original_07062026.xlsx', sheet = 1) %>%
+    rename(scan_date = Scan_date) %>% mutate(source = 'orig')
+  #szmet_orig <- szmet_orig %>% group_by(RECID) %>% separate_wider_delim(cols = region, delim = " ",names = c('hemisphere','roi'), cols_remove = TRUE,too_few = "align_start") %>% ungroup()
+  szmet_orig <- szmet_orig %>% rename(roi = 'region') %>% mutate(timepoint = case_when(timepoint == 1 ~ 'BL',
+                                                                                     timepoint == 2 ~ 'FU'))
+
+
+  # Match ROI names, create date value
+  szmet_new <- szmet_orig %>% 
+    separate(roi, c('hemi','roi'), ' ', convert=TRUE) %>%
+    mutate(roi = ifelse(roi == 'caudate', 'Caudate', roi)) %>%
+    mutate(roi = ifelse(roi == 'thalamus', 'Thalamus', roi)) %>%
+    mutate(dateNumeric = as.numeric(as.POSIXct(scan_date, format="%Y-%m-%d")),
+         hemi = ifelse(hemi=='left', 'L', ifelse(hemi=='right', 'R', NA))) %>%
+         mutate(region = paste0(hemi,' ', roi))
+  
+  # Match ROI names, create date value
+  szmet_new <- szmet_orig %>% 
+    separate(roi, c('hemi','roi'), ' ', convert=TRUE) %>%
+    mutate(roi = ifelse(roi == 'caudate', 'Caudate', roi)) %>%
+    mutate(roi = ifelse(roi == 'thalamus', 'Thalamus', roi)) %>%
+    mutate(dateNumeric = as.numeric(as.POSIXct(scan_date, format="%Y-%m-%d")),
+           hemi = ifelse(hemi=='left', 'L', ifelse(hemi=='right', 'R', NA))) %>%
+    mutate(region = paste0(hemi,' ', roi))
+  
+  szmet_new <- szmet_new %>% select(RECID,timepoint,roi,hemi,Cre,`Cre %SD`)
+  szmet_new <- szmet_new %>% rename(id = RECID, Cr = Cre, Cr.SD = `Cre %SD`)
+  szmet_new$id <- as.character(szmet_new$id)
+  szmet_new <- szmet_new %>% mutate(Cr = case_when(Cr.SD > 20 | Cr < 0.01 | Cr > 5*sd(Cr,na.rm=T) ~ NA_real_, TRUE ~ Cr))
+  
+  df <- df %>% filter((group_level == 'HC' & timepoint == 'BL') | group_level == 'SZ')
+  
+  
+  dg <- rbind(dg,szmet_new)
+  df <- left_join(df,dg,by=c('id','timepoint','roi','hemi'))
+  
+  df <- df %>% mutate(Cr_gamadj = case_when(Cr.SD > 20 | Cr < 0.01 | Cr > 5*sd(Cr,na.rm=T) ~ NA_real_, TRUE ~ Cr))
   df$Cr_gamadj <- scale(Winsorize(df$Cr_gamadj, val = quantile(df$Cr_gamadj,probs = c(0.05,0.95),na.rm=TRUE)))
   
   MCrCa <- lmerTest::lmer(data= df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Cr_gamadj ~ group_level*hemi + scale(GMrat) + sex + (1|id))
