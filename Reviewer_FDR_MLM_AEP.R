@@ -14,7 +14,7 @@ library(DescTools)
 library(ggrepel)
 library(ggsignif)
 
-reload_new_20260706 = F # 2026-07-06 reload after redoing gamadj models AndyP
+reload_new_20260706 = T # 2026-07-06 reload after redoing gamadj models AndyP
 reload_new = F # 2026-07-02 post redoing GM
 # same as reload, but loads in non gam-adjusted metabolites, can merge with reload df manually
 # also does group analyses with non-gam-adjusted metabolites
@@ -25,14 +25,14 @@ longitudinal = F
 group = F
 #hilowdoi = F
 eibalance = F
-group_r_nr = F
+group_r_nr = T
 # will reload just Sarpal / CZ data
 clinical = F
 handedness_group = F
-Figure_2 = T
+Figure_2 = F
 Creatine_Check  = F
 loglink_GLM = F
-
+Figure_3 = F
 #The manuscript states that FDR correction was performed by accounting for metabolites within each ROI. 
 # However, the statistical inference and biological interpretation are made across three ROIs. 
 # Please state exactly which p-values were included in each FDR correction family. 
@@ -894,6 +894,8 @@ if (reload==T){
 
 if (longitudinal==T){
   
+  df <- df %>% filter(group_level == 'SZ' | (group_level == 'HC' & timepoint == 'BL'))
+  
   ThGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Glu ~ condition*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
   ThGlu0 <- tidy(lmerTest::lmer(data = df %>% filter(group != 'HC' & roi == 'Thalamus'), Glu ~ group*timepoint + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
   
@@ -1740,8 +1742,20 @@ if (group_r_nr==T){
   Mall_R_NR <- rbind(Mth1,Mca1) %>% filter(term %in% c('groupNR:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% filter(pfdr < 0.05)
   Mall_NR <- rbind(Mth1,Mca1) %>% filter(term %in% c('groupNR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% filter(pfdr < 0.05)
   
+  CaGlu <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu ~ group*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(CaGlu, ~ group | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
   CaGABA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GABA ~ group*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(CaGABA, ~ group | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  ---
+  CaGluGln <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu.Gln ~ group*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(CaGluGln, ~ group | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
@@ -2830,4 +2844,131 @@ if (loglink_GLM==T){
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+}
+
+if (Figure_3){
+  
+  df <- df %>% filter(group_level == 'SZ' | (group_level == 'HC' & timepoint == 'BL'))
+  
+  secondary_mets <- c('GPC','NAAG','GPC.Cho','mI','NAA')
+  primary_mets <- c('Glu','GABA','Glu.Gln')
+  
+  
+  dodge_width = 0.8
+  df <- df %>% select(id,group,GMrat,GPC,Glu,GPC.Cho,GABA,NAA,mI,Gln,NAAG,Glu.Gln,roi,hemi,timepoint)
+  dfL <- df %>% pivot_longer(cols = c('GMrat','GPC','Glu','GPC.Cho','GABA','NAA','mI','Gln','NAAG','Glu.Gln'))
+  dfL <- dfL %>% filter(name != 'Gln' & name != 'GMrat' & !is.na(group))
+  dfL$Group <- dfL$group
+  
+  pdf('Figure_3A_L_Caudate_BL_FU.pdf',height = 4, width = 5)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% secondary_mets) & hemi == 'L'), aes(x = name, y = value,color=Group)) + 
+    geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
+    geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + theme_minimal() + xlab('') + ylab('') +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
+  pdf('Figure_3A_R_Caudate_BL_FU.pdf',height = 4, width = 5)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% secondary_mets) & hemi == 'R'), aes(x = name, y = value,color=Group)) + 
+    geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
+    geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + theme_minimal() + xlab('') + ylab('') +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
+  pdf('Figure_3A_L_Thalamus_BL_FU.pdf',height = 4, width = 5)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% secondary_mets) & hemi == 'L'), aes(x = name, y = value,color=Group)) + 
+    geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
+    geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + theme_minimal() + xlab('') + ylab('') +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
+  pdf('Figure_3A_R_Thalamus_BL_FU.pdf',height = 4, width = 5)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% secondary_mets) & hemi == 'R'), aes(x = name, y = value,color=Group)) + 
+    geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
+    geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + theme_minimal() + xlab('') + ylab('') +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
+  pdf('Figure_3A_L_Caudate_BL_FU_Secondary.pdf',height = 4, width = 7)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% primary_mets) & !name == 'NAAG' & hemi == 'L'), aes(x = name, y = value,color=Group)) + 
+    geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
+    geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + theme_minimal() + xlab('') + ylab('') +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
+  pdf('Figure_3A_R_Caudate_BL_FU_Secondary.pdf',height = 4, width = 7)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% primary_mets) & !name == 'NAAG' & hemi == 'R'), aes(x = name, y = value,color=Group)) + 
+    geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
+    geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + theme_minimal() + xlab('') + ylab('') +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
+  pdf('Figure_3A_L_Thalamus_BL_FU_Secondary.pdf',height = 4, width = 7)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% primary_mets) & !name == 'GPC' & hemi == 'L'), aes(x = name, y = value,color=Group)) + 
+    geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
+    geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + theme_minimal() + xlab('') + ylab('') +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
+  pdf('Figure_3A_R_Thalamus_BL_FU_Secondary.pdf',height = 4, width = 7)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% primary_mets) & !name == 'GPC' & hemi == 'R'), aes(x = name, y = value,color=Group)) + 
+    geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
+    geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    ylim(c(0,2.75)) + theme_minimal() + xlab('') + ylab('') +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
 }
