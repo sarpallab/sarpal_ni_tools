@@ -30,7 +30,8 @@ group_r_nr = F
 clinical = F
 handedness_group = F
 Figure_3 = F
-Creatine_Check  = T
+Creatine_Check  = F
+loglink_GLM = T
 
 #The manuscript states that FDR correction was performed by accounting for metabolites within each ROI. 
 # However, the statistical inference and biological interpretation are made across three ROIs. 
@@ -2771,4 +2772,62 @@ if (Creatine_Check){
   pairs(emm,adjust = "fdr")
   
   
+}
+
+if (loglink_GLM==T){
+  
+  df1 <- df %>% mutate(Glu = Glu*Cr_gamadj,
+                      GABA = GABA*Cr_gamadj,
+                      mI = mI*Cr_gamadj,
+                      Glu.Gln = Glu.Gln*Cr_gamadj,
+                      NAAG = NAAG*Cr_gamadj,
+                      NAA = NAA*Cr_gamadj)
+  df1 <- df1 %>% ungroup()
+  df1 = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL')
+  # 2026-06-04 Will need to add hemi eventually
+  ThGlu <- tidy(glm(data = df1, Glu ~ group_level*hemi +  offset(log(Cr_gamadj)), family = gaussian(link = "log"))) %>% mutate(metabolite = 'Glu')
+  ThGABA <- tidy(glm(data = df1, GABA ~ group_level*hemi+  offset(log(Cr_gamadj)), family = gaussian(link = "log"))) %>% mutate(metabolite = 'GABA')
+  ThGluGln <- tidy(glm(data = df1, Glu.Gln ~ group_level*hemi+  offset(log(Cr_gamadj)), family = gaussian(link = "log"))) %>% mutate(metabolite = 'GluGln')
+  ThNAAG <- tidy(glm(data = df1, NAAG ~ group_level*hemi +  offset(log(Cr_gamadj)), family = gaussian(link = "log"))) %>% mutate(metabolite = 'NAAG')
+  ThNAA <- tidy(glm(data = df1, NAA ~ group_level*hemi + offset(log(Cr_gamadj)), family = gaussian(link = "log"))) %>% mutate(metabolite = 'NAA')
+  Mth1 <- rbind(ThGlu,ThGABA,ThGluGln,ThNAAG,ThNAA) %>% mutate(roi = 'Thalamus')
+  
+  Mall_R_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
+  Mall_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
+  
+  
+  # examine emmeans
+  MThNAAG <- glm(data = df1, NAAG ~ group_level*hemi +  offset(log(Cr_gamadj)), family = gaussian(link = "log"))
+  emm <- emmeans(MThNAAG, ~ group_level | hemi, data = df1)
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  df1 <- df %>% mutate(Glu = Glu/GPC.Cho,
+                       GABA = GABA/GPC.Cho,
+                       mI = mI/GPC.Cho,
+                       Glu.Gln = Glu.Gln/GPC.Cho,
+                       NAAG = NAAG/GPC.Cho,
+                       NAA = NAA/GPC.Cho)
+  df1 <- df1 %>% ungroup()
+  df1 = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL')
+  # 2026-06-04 Will need to add hemi eventually
+  # 2026-06-04 Will need to add hemi eventually
+  ThGlu <- tidy(lmerTest::lmer(data = df1, Glu ~ group_level*hemi + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
+  ThGABA <- tidy(lmerTest::lmer(data = df1, GABA ~ group_level*hemi + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
+  ThmI <- tidy(lmerTest::lmer(data = df1, mI ~ group_level*hemi + scale(GMrat) + scale(Cr_gamadj)*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
+  ThGluGln <- tidy(lmerTest::lmer(data = df1, Glu.Gln ~ group_level*hemi + scale(Cr_gamadj)*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GluGln')
+  ThNAAG <- tidy(lmerTest::lmer(data = df1, NAAG ~ group_level*hemi+ scale(Cr_gamadj)*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
+  ThNAA <- tidy(lmerTest::lmer(data = df1, NAA ~ group_level*hemi + scale(Cr_gamadj)*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
+  Mth1 <- rbind(ThGlu,ThGABA,ThmI,ThGluGln,ThNAAG,ThNAA) %>% mutate(roi = 'Thalamus')
+
+  Mall_R_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
+  Mall_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
+  
+  # examine emmeans
+  MThNAAG <- lmerTest::lmer(data = df1, NAAG ~ group_level*hemi+ scale(Cr_gamadj)*group_level + (1|id))
+  emm <- emmeans(MThNAAG, ~ group_level | hemi, data = df1)
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
 }
