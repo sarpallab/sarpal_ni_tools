@@ -14,7 +14,7 @@ library(DescTools)
 library(ggrepel)
 library(ggsignif)
 
-reload_new_20260706 = T # 2026-07-06 reload after redoing gamadj models AndyP
+reload_new_20260706 = F # 2026-07-06 reload after redoing gamadj models AndyP
 reload_new = F # 2026-07-02 post redoing GM
 # same as reload, but loads in non gam-adjusted metabolites, can merge with reload df manually
 # also does group analyses with non-gam-adjusted metabolites
@@ -29,9 +29,9 @@ group_r_nr = F
 # will reload just Sarpal / CZ data
 clinical = F
 handedness_group = F
-Figure_3 = F
+Figure_2 = T
 Creatine_Check  = F
-loglink_GLM = T
+loglink_GLM = F
 
 #The manuscript states that FDR correction was performed by accounting for metabolites within each ROI. 
 # However, the statistical inference and biological interpretation are made across three ROIs. 
@@ -2029,7 +2029,7 @@ if (handedness_group == T){
   pairs(emm,adjust = "fdr")
 }
 
-if (Figure_3){
+if (Figure_2){
   
   secondary_mets <- c('GPC','NAAG','GPC.Cho','mI','NAA')
   primary_mets <- c('Glu','GABA','Glu.Gln')
@@ -2042,11 +2042,11 @@ if (Figure_3){
   dfL$Group <- dfL$group_level
   
   ####### Left Caudate Primary Metabolites ########
-  pdf('Figure_3A_L_Caudate_Primary.pdf',height=4, width = 5)
-  gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% secondary_mets) & hemi == 'L'), aes(x = name, y = value, color = Group)) + 
-    geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
+  pdf('Figure_2A_L_Caudate_Primary.pdf',height=4, width = 5)
+  gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% secondary_mets) & hemi == 'L'), aes(x = name, y = value)) + 
+    geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    geom_boxplot(aes(group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
@@ -2094,11 +2094,11 @@ if (Figure_3){
   dev.off()
   
   ####### Right Caudate Primary Metabolites ########
-  pdf('Figure_3B_R_Caudate_Primary.pdf',height=4, width = 5)
+  pdf('Figure_2B_R_Caudate_Primary.pdf',height=4, width = 5)
   gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% secondary_mets) & hemi == 'R'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    geom_boxplot(aes(group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
@@ -2144,11 +2144,11 @@ if (Figure_3){
   dev.off()
   
   ####### Left Thalamus Primary Metabolites ########
-  pdf('Figure_3C_L_Thalamus_Primary.pdf',height=4, width = 5)
+  pdf('Figure_2C_L_Thalamus_Primary.pdf',height=4, width = 5)
   gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% secondary_mets) & hemi == 'L'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    geom_boxplot(aes(group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
@@ -2196,11 +2196,11 @@ if (Figure_3){
   dev.off()
   
   ####### Right Thalamus Primary Metabolites ########
-  pdf('Figure_3D_R_Thalamus_Primary.pdf',height=4, width = 5)
+  pdf('Figure_2D_R_Thalamus_Primary.pdf',height=4, width = 5)
   gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% secondary_mets) & hemi == 'R'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    geom_boxplot(aes(group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
@@ -2249,11 +2249,11 @@ if (Figure_3){
   
   
   ####### Left Caudate Secondary Metabolites ########
-  pdf('Figure_3E_L_Caudate_Secondary.pdf',height=4, width = 7)
+  pdf('Figure_2E_L_Caudate_Secondary.pdf',height=4, width = 7)
   gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% primary_mets) & !name == 'NAAG' & hemi == 'L'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    geom_boxplot(aes(group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
@@ -2313,11 +2313,11 @@ if (Figure_3){
   dev.off()
   
   ####### Right Caudate Secondary Metabolites ########
-  pdf('Figure_3F_R_Caudate_Secondary.pdf',height=4, width = 7)
+  pdf('Figure_2F_R_Caudate_Secondary.pdf',height=4, width = 7)
   gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% primary_mets) & !name == 'NAAG' & hemi == 'R'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    geom_boxplot(aes(group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
@@ -2378,11 +2378,11 @@ if (Figure_3){
   dev.off()
   
   ####### Left Thalamus Secondary Metabolites ########
-  pdf('Figure_3G_L_Thalamus_Secondary.pdf',height=4, width = 7)
+  pdf('Figure_2G_L_Thalamus_Secondary.pdf',height=4, width = 7)
   gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% primary_mets) & name != 'GPC' & hemi == 'L'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    geom_boxplot(aes(group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
@@ -2441,11 +2441,11 @@ if (Figure_3){
   dev.off()
   
   ####### Right Thalamus Secondary Metabolites ########
-  pdf('Figure_3H_R_Thalamus_Secondary.pdf',height=4, width = 7)
+  pdf('Figure_2H_R_Thalamus_Secondary.pdf',height=4, width = 7)
   gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% primary_mets) & name != 'GPC' & hemi == 'R'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
-    geom_boxplot(outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+    geom_boxplot(aes(group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
@@ -2776,32 +2776,32 @@ if (Creatine_Check){
 
 if (loglink_GLM==T){
   
-  df1 <- df %>% mutate(Glu = Glu*Cr_gamadj,
-                      GABA = GABA*Cr_gamadj,
-                      mI = mI*Cr_gamadj,
-                      Glu.Gln = Glu.Gln*Cr_gamadj,
-                      NAAG = NAAG*Cr_gamadj,
-                      NAA = NAA*Cr_gamadj)
-  df1 <- df1 %>% ungroup()
-  df1 = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL')
-  # 2026-06-04 Will need to add hemi eventually
-  ThGlu <- tidy(glm(data = df1, Glu ~ group_level*hemi +  offset(log(Cr_gamadj)), family = gaussian(link = "log"))) %>% mutate(metabolite = 'Glu')
-  ThGABA <- tidy(glm(data = df1, GABA ~ group_level*hemi+  offset(log(Cr_gamadj)), family = gaussian(link = "log"))) %>% mutate(metabolite = 'GABA')
-  ThGluGln <- tidy(glm(data = df1, Glu.Gln ~ group_level*hemi+  offset(log(Cr_gamadj)), family = gaussian(link = "log"))) %>% mutate(metabolite = 'GluGln')
-  ThNAAG <- tidy(glm(data = df1, NAAG ~ group_level*hemi +  offset(log(Cr_gamadj)), family = gaussian(link = "log"))) %>% mutate(metabolite = 'NAAG')
-  ThNAA <- tidy(glm(data = df1, NAA ~ group_level*hemi + offset(log(Cr_gamadj)), family = gaussian(link = "log"))) %>% mutate(metabolite = 'NAA')
-  Mth1 <- rbind(ThGlu,ThGABA,ThGluGln,ThNAAG,ThNAA) %>% mutate(roi = 'Thalamus')
-  
-  Mall_R_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
-  Mall_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
-  
-  
-  # examine emmeans
-  MThNAAG <- glm(data = df1, NAAG ~ group_level*hemi +  offset(log(Cr_gamadj)), family = gaussian(link = "log"))
-  emm <- emmeans(MThNAAG, ~ group_level | hemi, data = df1)
-  # Convert to data frame
-  emm_df <- as.data.frame(emm)
-  pairs(emm,adjust = "fdr")
+  # df1 <- df %>% mutate(Glu = Glu*Cr_gamadj,
+  #                     GABA = GABA*Cr_gamadj,
+  #                     mI = mI*Cr_gamadj,
+  #                     Glu.Gln = Glu.Gln*Cr_gamadj,
+  #                     NAAG = NAAG*Cr_gamadj,
+  #                     NAA = NAA*Cr_gamadj)
+  # df1 <- df1 %>% ungroup()
+  # df1 = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL')
+  # # 2026-06-04 Will need to add hemi eventually
+  # ThGlu <- tidy(glm(data = df1, Glu ~ group_level*hemi +  offset(log(Cr_gamadj)), family = gaussian(link = "log"))) %>% mutate(metabolite = 'Glu')
+  # ThGABA <- tidy(glm(data = df1, GABA ~ group_level*hemi+  offset(log(Cr_gamadj)), family = gaussian(link = "log"))) %>% mutate(metabolite = 'GABA')
+  # ThGluGln <- tidy(glm(data = df1, Glu.Gln ~ group_level*hemi+  offset(log(Cr_gamadj)), family = gaussian(link = "log"))) %>% mutate(metabolite = 'GluGln')
+  # ThNAAG <- tidy(glm(data = df1, NAAG ~ group_level*hemi +  offset(log(Cr_gamadj)), family = gaussian(link = "log"))) %>% mutate(metabolite = 'NAAG')
+  # ThNAA <- tidy(glm(data = df1, NAA ~ group_level*hemi + offset(log(Cr_gamadj)), family = gaussian(link = "log"))) %>% mutate(metabolite = 'NAA')
+  # Mth1 <- rbind(ThGlu,ThGABA,ThGluGln,ThNAAG,ThNAA) %>% mutate(roi = 'Thalamus')
+  # 
+  # Mall_R_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
+  # Mall_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
+  # 
+  # 
+  # # examine emmeans
+  # MThNAAG <- glm(data = df1, NAAG ~ group_level*hemi +  offset(log(Cr_gamadj)), family = gaussian(link = "log"))
+  # emm <- emmeans(MThNAAG, ~ group_level | hemi, data = df1)
+  # # Convert to data frame
+  # emm_df <- as.data.frame(emm)
+  # pairs(emm,adjust = "fdr")
   
   df1 <- df %>% mutate(Glu = Glu/GPC.Cho,
                        GABA = GABA/GPC.Cho,
