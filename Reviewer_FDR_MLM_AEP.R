@@ -25,14 +25,14 @@ longitudinal = F
 group = F
 #hilowdoi = F
 eibalance = F
-group_r_nr = T
+group_r_nr = F
 # will reload just Sarpal / CZ data
 clinical = F
 handedness_group = F
 Figure_2 = F
 Creatine_Check  = F
 loglink_GLM = F
-Figure_3 = F
+Figure_3 = T
 #The manuscript states that FDR correction was performed by accounting for metabolites within each ROI. 
 # However, the statistical inference and biological interpretation are made across three ROIs. 
 # Please state exactly which p-values were included in each FDR correction family. 
@@ -40,9 +40,9 @@ Figure_3 = F
 # includes all ROI-by-metabolite tests within each type of analysis, and report whether the main findings remain significant.
 
 # macbook
- basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
+ #basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
 # macmini
-#basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
+basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
 setwd(basedir)
 
 #df <- read_csv('20260708-final-dataset-MRSI-2.csv')
@@ -1089,6 +1089,14 @@ if (group==T){
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
 
+  fv <- fitted(MCaGlu)
+  rsq <- (residuals(MCaGlu))^2
+  valid_indices <- which(fv > 0 & rsq > 0)
+  ln_res_sq <- log(rsq[valid_indices])
+  ln_fitted <- log(fv[valid_indices])
+  park_model <- lm(ln_res_sq ~ ln_fitted)
+  summary(park_model)
+  
   # examine emmeans
   MCaGPC.Cho <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'),  GPC.Cho ~ group_level*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(MCaGPC.Cho, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
@@ -1110,12 +1118,28 @@ if (group==T){
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
   
+  fv <- fitted(MThGABA)
+  rsq <- (residuals(MThGABA))^2
+  valid_indices <- which(fv > 0 & rsq > 0)
+  ln_res_sq <- log(rsq[valid_indices])
+  ln_fitted <- log(fv[valid_indices])
+  park_model <- lm(ln_res_sq ~ ln_fitted)
+  summary(park_model)
+  
   # examine emmeans
   MThGlu <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu ~ group_level*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(MThGlu, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
+  fv <- fitted(MThGlu)
+  rsq <- (residuals(MThGlu))^2
+  valid_indices <- which(fv > 0 & rsq > 0)
+  ln_res_sq <- log(rsq[valid_indices])
+  ln_fitted <- log(fv[valid_indices])
+  park_model <- lm(ln_res_sq ~ ln_fitted)
+  summary(park_model)
   
   # examine emmeans
   MThGluGln <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))
@@ -1145,6 +1169,27 @@ if (group==T){
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
   
+  # this one is -2 => Variance is inversely proportional to the mean squared, inverse heteroscedasticity
+  fv <- fitted(MThmI)
+  rsq <- (residuals(MThmI))^2
+  valid_indices <- which(fv > 0 & rsq > 0)
+  ln_res_sq <- log(rsq[valid_indices])
+  ln_fitted <- log(fv[valid_indices])
+  park_model <- lm(ln_res_sq ~ ln_fitted)
+  summary(park_model)
+  
+  # How to fix:
+  # 1. Extract the fitted gamma from your Park model
+  # gamma_hat <- coef(park_model)["ln_fitted"]
+  # 
+  # # 2. Calculate the weights (Inverse of variance)
+  # # Since Var = Mean^Gamma, Weight = 1 / (Mean^Gamma)
+  # weights_wls <- 1 / (fitted_vals^gamma_hat)
+  # 
+  # # 3. Re-run your baseline model with weights
+  # wls_model <- lm(y ~ x1 + x2, data = your_data, weights = weights_wls)
+  # summary(wls_model)
+  
   # examine emmeans
   MCamI <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(MCamI, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
@@ -1152,12 +1197,30 @@ if (group==T){
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
   
+  # this one is significant, variance scales linearly with the mean, consider using Poisson GLM
+  fv <- fitted(MCamI)
+  rsq <- (residuals(MCamI))^2
+  valid_indices <- which(fv > 0 & rsq > 0)
+  ln_res_sq <- log(rsq[valid_indices])
+  ln_fitted <- log(fv[valid_indices])
+  park_model <- lm(ln_res_sq ~ ln_fitted)
+  summary(park_model)
+  
   # examine emmeans
   MThNAAG <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(MThNAAG, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
+  # N.S.
+  fv <- fitted(MThNAAG)
+  rsq <- (residuals(MThNAAG))^2
+  valid_indices <- which(fv > 0 & rsq > 0)
+  ln_res_sq <- log(rsq[valid_indices])
+  ln_fitted <- log(fv[valid_indices])
+  park_model <- lm(ln_res_sq ~ ln_fitted)
+  summary(park_model)
   
   # examine emmeans, yes there is more in L in HC and more in R in SZ
   MThNAAG <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))
@@ -1172,6 +1235,15 @@ if (group==T){
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
+  # N.S.
+  fv <- fitted(MThNAA)
+  rsq <- (residuals(MThNAA))^2
+  valid_indices <- which(fv > 0 & rsq > 0)
+  ln_res_sq <- log(rsq[valid_indices])
+  ln_fitted <- log(fv[valid_indices])
+  park_model <- lm(ln_res_sq ~ ln_fitted)
+  summary(park_model)
    
   # examine emmeans
   MCaNAA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
@@ -1213,6 +1285,14 @@ if (group==T){
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
+  fv <- fitted(MCaGluGln)
+  rsq <- (residuals(MCaGluGln))^2
+  valid_indices <- which(fv > 0 & rsq > 0)
+  ln_res_sq <- log(rsq[valid_indices])
+  ln_fitted <- log(fv[valid_indices])
+  park_model <- lm(ln_res_sq ~ ln_fitted)
+  summary(park_model)
   
   MCaGABA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GABA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(MCaGABA, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
@@ -1748,12 +1828,18 @@ if (group_r_nr==T){
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
   
+  Ca <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAA ~ group*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(Ca, ~ group | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
   CaGABA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GABA ~ group*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(CaGABA, ~ group | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
-  ---
+
   CaGluGln <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu.Gln ~ group*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(CaGluGln, ~ group | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
   # Convert to data frame
@@ -2855,12 +2941,12 @@ if (Figure_3){
   
   
   dodge_width = 0.8
-  df <- df %>% select(id,group,GMrat,GPC,Glu,GPC.Cho,GABA,NAA,mI,Gln,NAAG,Glu.Gln,roi,hemi,timepoint)
+  df <- df %>% select(id,group,GMrat,GPC,Glu,GPC.Cho,GABA,NAA,mI,Gln,NAAG,Glu.Gln,roi,hemi,timepoint) %>% filter(timepoint == 'BL')
   dfL <- df %>% pivot_longer(cols = c('GMrat','GPC','Glu','GPC.Cho','GABA','NAA','mI','Gln','NAAG','Glu.Gln'))
   dfL <- dfL %>% filter(name != 'Gln' & name != 'GMrat' & !is.na(group))
   dfL$Group <- dfL$group
   
-  pdf('Figure_3A_L_Caudate_BL_FU.pdf',height = 4, width = 5)
+  pdf('Figure_3A_L_Caudate_BL.pdf',height = 4, width = 5)
   gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% secondary_mets) & hemi == 'L'), aes(x = name, y = value,color=Group)) + 
     geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
     geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
@@ -2874,7 +2960,7 @@ if (Figure_3){
   print(gg1)
   dev.off()
   
-  pdf('Figure_3A_R_Caudate_BL_FU.pdf',height = 4, width = 5)
+  pdf('Figure_3A_R_Caudate_BL.pdf',height = 4, width = 5)
   gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% secondary_mets) & hemi == 'R'), aes(x = name, y = value,color=Group)) + 
     geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
     geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
@@ -2888,7 +2974,7 @@ if (Figure_3){
   print(gg1)
   dev.off()
   
-  pdf('Figure_3A_L_Thalamus_BL_FU.pdf',height = 4, width = 5)
+  pdf('Figure_3A_L_Thalamus_BL.pdf',height = 4, width = 5)
   gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% secondary_mets) & hemi == 'L'), aes(x = name, y = value,color=Group)) + 
     geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
     geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
@@ -2902,7 +2988,7 @@ if (Figure_3){
   print(gg1)
   dev.off()
   
-  pdf('Figure_3A_R_Thalamus_BL_FU.pdf',height = 4, width = 5)
+  pdf('Figure_3A_R_Thalamus_BL.pdf',height = 4, width = 5)
   gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% secondary_mets) & hemi == 'R'), aes(x = name, y = value,color=Group)) + 
     geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
     geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
@@ -2916,7 +3002,7 @@ if (Figure_3){
   print(gg1)
   dev.off()
   
-  pdf('Figure_3A_L_Caudate_BL_FU_Secondary.pdf',height = 4, width = 7)
+  pdf('Figure_3A_L_Caudate_BL_Secondary.pdf',height = 4, width = 7)
   gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% primary_mets) & !name == 'NAAG' & hemi == 'L'), aes(x = name, y = value,color=Group)) + 
     geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
     geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
@@ -2930,10 +3016,10 @@ if (Figure_3){
   print(gg1)
   dev.off()
   
-  pdf('Figure_3A_R_Caudate_BL_FU_Secondary.pdf',height = 4, width = 7)
-  gg1 <- ggplot(dfL %>% filter(roi == 'Caudate' & !(name %in% primary_mets) & !name == 'NAAG' & hemi == 'R'), aes(x = name, y = value,color=Group)) + 
-    geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
-    geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
+  pdf('Figure_3A_R_Caudate_BL_Secondary.pdf',height = 4, width = 4)
+  gg1 <- ggplot(df %>% filter(roi == 'Caudate' & hemi == 'R' & timepoint == 'BL' & !is.na(group)), aes(x = group, y = NAA,color=group)) + 
+    geom_jitter(aes(color = group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
+    geom_boxplot(aes(group = group),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     ylim(c(0,2.75)) + theme_minimal() + xlab('') + ylab('') +
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
@@ -2944,7 +3030,7 @@ if (Figure_3){
   print(gg1)
   dev.off()
   
-  pdf('Figure_3A_L_Thalamus_BL_FU_Secondary.pdf',height = 4, width = 7)
+  pdf('Figure_3A_L_Thalamus_BL_Secondary.pdf',height = 4, width = 7)
   gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% primary_mets) & !name == 'GPC' & hemi == 'L'), aes(x = name, y = value,color=Group)) + 
     geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
     geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
@@ -2958,7 +3044,7 @@ if (Figure_3){
   print(gg1)
   dev.off()
   
-  pdf('Figure_3A_R_Thalamus_BL_FU_Secondary.pdf',height = 4, width = 7)
+  pdf('Figure_3A_R_Thalamus_BL_Secondary.pdf',height = 4, width = 7)
   gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% primary_mets) & !name == 'GPC' & hemi == 'R'), aes(x = name, y = value,color=Group)) + 
     geom_jitter(aes(color = Group),position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8)) +
     geom_boxplot(aes(Group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
