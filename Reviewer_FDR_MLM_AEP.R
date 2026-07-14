@@ -24,7 +24,7 @@ reload_new = F # 2026-07-02 post redoing GM
 reload = F
 reload_check_GM = F
 longitudinal = F
-group = F
+group = T
 hilowdoi = F
 eibalance = F
 group_r_nr = F
@@ -32,8 +32,9 @@ group_r_nr = F
 clinical = F
 handedness_group = F
 Figure_2 = F
-Creatine_Check  = T
-loglink_GLM = F
+Creatine_Check  = F
+Ref2GPC.Cho = F
+NoRef = F # don't use this, need to apply a phantom correction
 Figure_3 = F
 Figure_4 = F
 corr_heatmap = F
@@ -362,6 +363,9 @@ if (nan_out_Crgamadj==T){
   df$GPC[na_indices_Cr] = NA
   df$GPC.Cho[na_indices_Cr] = NA
 }
+  
+  df$mI[df$mI <= 0] = NA
+  df$NAAG[df$NAAG <= 0] = NA
   
   df <- df %>% select(!Glc) # No Glc data in SSD
   df0 <- df %>% group_by(group_level,id) %>% slice(1) %>% ungroup() %>% group_by(group_level) %>% summarize(mA = mean(age, na.rm=TRUE), sA = sd(age,na.rm=TRUE), N= n()) %>% ungroup()
@@ -1159,8 +1163,8 @@ if (group==T){
   ThNAA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAA ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
   # convergence issues in this lmer model, low variance at the subject level so just use lm
   #ThGpc <- tidy(lm(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), GPC ~ group_level*hemi + scale(GMrat))) %>% mutate(metabolite = 'GPC')
-  #ThCho <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), GPC.Cho ~ group_level + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GPC.Cho')
-  Mth1 <- rbind(ThGlu,ThGABA,ThmI,ThGluGln,ThNAAG,ThNAA) %>% mutate(roi = 'Thalamus')
+  ThCho <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), GPC.Cho ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GPC.Cho')
+  Mth1 <- rbind(ThGlu,ThGABA,ThmI,ThGluGln,ThNAAG,ThNAA,ThCho) %>% mutate(roi = 'Thalamus')
   
   
   CaGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
@@ -1205,6 +1209,13 @@ if (group==T){
   # examine emmeans
   MCaGPC.Cho <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'),  GPC.Cho ~ group_level*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(MCaGPC.Cho, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThGPC.Cho <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'),  GPC.Cho ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThGPC.Cho, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
@@ -2901,10 +2912,10 @@ if (Creatine_Check){
   
   pdf('Figure_S2A_Caudate_Glu.pdf',height=5,width=6)
   emm_df$Group <- emm_df$group_level
-  pvals <- data.frame(hemi = "R", group1 = c("HC"), group2 = c("SZ"), p.signif = c("*"), y.position = 1.6)
+  pvals <- data.frame(hemi = "R", group1 = c("HC"), group2 = c("SZ"), p.signif = c("*"), y.position = 1.5)
   gg1<- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
     geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
-    theme_minimal() + xlab('') + ylab('Caudate Glu') + ylim(c(0,2)) +
+    theme_minimal() + xlab('') + ylab('Caudate Glu') + ylim(c(1.0,1.65)) +
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
           legend.text = element_text(size = 14),
@@ -2929,10 +2940,10 @@ if (Creatine_Check){
   
   pdf('Figure_S2A_Caudate_GABA.pdf',height=5,width=6)
   emm_df$Group <- emm_df$group_level
-  pvals <- data.frame(hemi = c("R","L"), group1 = c("HC"), group2 = c("SZ"), p.signif = c("**"), y.position = 1.6)
+  pvals <- data.frame(hemi = c("R","L"), group1 = c("HC"), group2 = c("SZ"), p.signif = c("**"), y.position = 0.6)
   gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
     geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
-    theme_minimal() + xlab('') + ylab('Caudate GABA') + ylim(c(0,2)) +
+    theme_minimal() + xlab('') + ylab('Caudate GABA') + ylim(c(0.25,0.8)) +
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
           legend.text = element_text(size = 14),
@@ -2957,10 +2968,10 @@ if (Creatine_Check){
   
   pdf('Figure_S2A_Caudate_GluGln.pdf',height=5,width=6)
   emm_df$Group <- emm_df$group_level
-  pvals <- data.frame(hemi = "R", group1 = c("HC"), group2 = c("SZ"), p.signif = c("**"), y.position = 1.6)
+  pvals <- data.frame(hemi = "R", group1 = c("HC"), group2 = c("SZ"), p.signif = c("**"), y.position = 2.0)
   gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
     geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
-    theme_minimal() + xlab('') + ylab('Caudate Glu.Gln') + ylim(c(0,2)) +
+    theme_minimal() + xlab('') + ylab('Caudate Glu.Gln') + ylim(c(1.33,2.25)) +
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
           legend.text = element_text(size = 14),
@@ -2985,10 +2996,10 @@ if (Creatine_Check){
   
   pdf('Figure_S2A_Thalamus_GluGln.pdf',height=5,width=6)
   emm_df$Group <- emm_df$group_level
-  pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("*"), y.position = 1.6)
+  pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("*"), y.position = 2.0)
   gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
     geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
-    theme_minimal() + xlab('') + ylab('Thalamus Glu.Gln') + ylim(c(0,2)) +
+    theme_minimal() + xlab('') + ylab('Thalamus Glu.Gln') + ylim(c(1.33,2.25)) +
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
           legend.text = element_text(size = 14),
@@ -3012,10 +3023,10 @@ if (Creatine_Check){
   
   pdf('Figure_S2A_Thalamus_GABA.pdf',height=5,width=6)
   emm_df$Group <- emm_df$group_level
-  pvals <- data.frame(hemi = "R", group1 = c("HC"), group2 = c("SZ"), p.signif = c("*"), y.position = 1.6)
+  pvals <- data.frame(hemi = "R", group1 = c("HC"), group2 = c("SZ"), p.signif = c("*"), y.position = 0.6)
   gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
     geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
-    theme_minimal() + xlab('') + ylab('Thalamus GABA') + ylim(c(0,2)) +
+    theme_minimal() + xlab('') + ylab('Thalamus GABA') + ylim(c(0.25,0.75)) +
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
           legend.text = element_text(size = 14),
@@ -3043,7 +3054,7 @@ if (Creatine_Check){
   pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("*"), y.position = 1.6)
   gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
     geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
-    theme_minimal() + xlab('') + ylab('Caudate NAA') + ylim(c(0,2)) +
+    theme_minimal() + xlab('') + ylab('Caudate NAA') + ylim(c(1.0,1.75)) +
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
           legend.text = element_text(size = 14),
@@ -3068,10 +3079,10 @@ if (Creatine_Check){
   
   pdf('Figure_S2A_Caudate_GPC_Cho.pdf',height=5,width=6)
   emm_df$Group <- emm_df$group_level
-  pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("**"), y.position = 1.6)
+  pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("**"), y.position = 0.5)
   gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
     geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
-    theme_minimal() + xlab('') + ylab('Caudate GPC.Cho') + ylim(c(0,2)) +
+    theme_minimal() + xlab('') + ylab('Caudate GPC.Cho') + ylim(c(0.25,0.6)) +
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
           legend.text = element_text(size = 14),
@@ -3096,10 +3107,10 @@ if (Creatine_Check){
 
   pdf('Figure_S2A_Caudate_mI.pdf',height=5,width=6)  
   emm_df$Group <- emm_df$group_level
-  pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("N.S."), y.position = 1.6)
+  pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("N.S."), y.position = 1.33)
   gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
     geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
-    theme_minimal() + xlab('') + ylab('Caudate mI') + ylim(c(0,2)) +
+    theme_minimal() + xlab('') + ylab('Caudate mI') + ylim(c(0.75,1.5)) +
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
           legend.text = element_text(size = 14),
@@ -3107,7 +3118,7 @@ if (Creatine_Check){
           axis.title.x = element_text(size = 16),
           axis.title.y = element_text(size = 16),
           strip.text.x = element_text(size = 16)) + 
-    stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
+    stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=7, bracket.size = 1.2)
   print(gg1)
   dev.off()
   
@@ -3124,10 +3135,10 @@ if (Creatine_Check){
   
   pdf('Figure_S2A_Thalamus_NAAG.pdf',height=5,width=6) 
   emm_df$Group <- emm_df$group_level
-  pvals <- data.frame(hemi = c("R","L"), group1 = c("HC"), group2 = c("SZ"), p.signif = c("***","N.S."), y.position = 1.6)
+  pvals <- data.frame(hemi = c("R","L"), group1 = c("HC"), group2 = c("SZ"), p.signif = c("N.S.","***"), y.position = 0.7)
   gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
     geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
-    theme_minimal() + xlab('') + ylab('Thalamus NAAG') + ylim(c(0,2)) +
+    theme_minimal() + xlab('') + ylab('Thalamus NAAG') + ylim(c(0.15,0.85)) +
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
           legend.text = element_text(size = 14),
@@ -3155,7 +3166,7 @@ if (Creatine_Check){
   pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("**"), y.position = 1.6)
   gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
     geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
-    theme_minimal() + xlab('') + ylab('Thalamus NAA') + ylim(c(0,2)) +
+    theme_minimal() + xlab('') + ylab('Thalamus NAA') + ylim(c(1.0,1.75)) +
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
           legend.text = element_text(size = 14),
@@ -3180,10 +3191,10 @@ if (Creatine_Check){
   
   pdf('Figure_S2A_Thalamus_mI.pdf',height=5,width=6) 
   emm_df$Group <- emm_df$group_level
-  pvals <- data.frame(hemi = "R", group1 = c("HC"), group2 = c("SZ"), p.signif = c("*"), y.position = 1.6)
+  pvals <- data.frame(hemi = "R", group1 = c("HC"), group2 = c("SZ"), p.signif = c("*"), y.position = 1.25)
   gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
     geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
-    theme_minimal() + xlab('') + ylab('Thalamus NAA') + ylim(c(0,2)) +
+    theme_minimal() + xlab('') + ylab('Thalamus mI') + ylim(c(0,1.5)) +
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
           legend.text = element_text(size = 14),
@@ -3202,14 +3213,13 @@ if (Creatine_Check){
   pdf('Cr_baseline_Comparison.pdf',height=5,width=6)
   gg1 <- ggplot(data = df, aes(x=Group,y = Cr_gamadj,color = Group)) + geom_jitter() + 
     geom_boxplot(color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
-    theme_minimal() + facet_grid(roi~hemi) + ylim(c(0,1000)) +    
+    theme_minimal() + facet_grid(roi~hemi) + ylim(c(0,1000)) + ylab('Cr') +  
     theme(axis.text.y = element_text(size = 14),
                                 axis.text.x = element_text(size = 14),
                                 legend.text = element_text(size = 14),
                                 legend.title = element_text(size = 16),
                                 axis.title.x = element_text(size = 16),
-                                axis.title.y = element_text(size = 16)) + 
-    stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
+                                axis.title.y = element_text(size = 16))
   print(gg1)
   dev.off()
   
@@ -3217,7 +3227,7 @@ if (Creatine_Check){
   pdf('Cr_baseline_Comparison_longitudinal.pdf',height=5,width=6)
   gg1 <- ggplot(data = df %>% filter(group_level == 'SZ'), aes(x=Group,y = Cr_gamadj)) + geom_jitter() + 
     geom_boxplot(color = "black",outlier.shape = NA,notch = T,linewidth = 0.75,alpha = 0.5,fatten = 1) +
-    theme_minimal() + facet_grid(roi~hemi) + ylim(c(0,1000)) +   
+    theme_minimal() + facet_grid(roi~hemi) + ylim(c(0,1000)) + ylab('Cr') +    
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
           legend.text = element_text(size = 14),
@@ -3231,7 +3241,7 @@ if (Creatine_Check){
   pdf('Cr_baseline_Comparison_R_NR.pdf',height=5,width=6)
   gg1 <- ggplot(data = df %>% filter(group_level == 'SZ' & !is.na(group) & timepoint == 'BL'), aes(x=Group,y = Cr_gamadj)) + geom_jitter() + 
     geom_boxplot(color = "black",outlier.shape = NA,notch = F,linewidth = 0.75,alpha = 0.5,fatten = 1) +
-    theme_minimal() + facet_grid(roi~hemi) + ylim(c(0,1000)) +  
+    theme_minimal() + facet_grid(roi~hemi) + ylim(c(0,1000)) + ylab('Cr') +    
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
           legend.text = element_text(size = 14),
@@ -3244,7 +3254,7 @@ if (Creatine_Check){
   
 }
 
-if (loglink_GLM==T){
+if (Ref2GPC.Cho==T){
   
   # df1 <- df %>% mutate(Glu = Glu*Cr_gamadj,
   #                     GABA = GABA*Cr_gamadj,
@@ -3278,28 +3288,327 @@ if (loglink_GLM==T){
                        mI = mI/GPC.Cho,
                        Glu.Gln = Glu.Gln/GPC.Cho,
                        NAAG = NAAG/GPC.Cho,
-                       NAA = NAA/GPC.Cho)
+                       NAA = NAA/GPC.Cho,
+                       GPC.Cho = GPC.Cho*Cr_gamadj)
   df1 <- df1 %>% ungroup()
   df1 = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL')
-  # 2026-06-04 Will need to add hemi eventually
-  # 2026-06-04 Will need to add hemi eventually
-  ThGlu <- tidy(lmerTest::lmer(data = df1, Glu ~ group_level*hemi + scale(GMrat) + Cr_gamadj1*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
-  ThGABA <- tidy(lmerTest::lmer(data = df1, GABA ~ group_level*hemi + scale(GMrat) + Cr_gamadj1*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
-  ThmI <- tidy(lmerTest::lmer(data = df1, mI ~ group_level*hemi + scale(GMrat) + Cr_gamadj1*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
-  ThGluGln <- tidy(lmerTest::lmer(data = df1, Glu.Gln ~ group_level*hemi + Cr_gamadj1*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GluGln')
-  ThNAAG <- tidy(lmerTest::lmer(data = df1, NAAG ~ group_level*hemi+ Cr_gamadj1*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
-  ThNAA <- tidy(lmerTest::lmer(data = df1, NAA ~ group_level*hemi + Cr_gamadj1*group_level + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
+  
+  M <- lmerTest::lmer(data = df1, GPC.Cho ~ group_level*hemi + scale(GMrat) + sex + (1|id))
+  
+  ThGlu <- tidy(lmerTest::lmer(data = df1, Glu ~ group_level*hemi + scale(GMrat) + sex + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
+  ThGABA <- tidy(lmerTest::lmer(data = df1, GABA ~ group_level*hemi + scale(GMrat) + sex + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
+  ThmI <- tidy(lmerTest::lmer(data = df1, mI ~ group_level*hemi + scale(GMrat) + sex + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
+  ThGluGln <- tidy(lmerTest::lmer(data = df1, Glu.Gln ~ group_level*hemi + sex + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GluGln')
+  ThNAAG <- tidy(lmerTest::lmer(data = df1, NAAG ~ group_level*hemi+ sex + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
+  ThNAA <- tidy(lmerTest::lmer(data = df1, NAA ~ group_level*hemi + sex + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
   Mth1 <- rbind(ThGlu,ThGABA,ThmI,ThGluGln,ThNAAG,ThNAA) %>% mutate(roi = 'Thalamus')
 
   Mall_R_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
   Mall_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
   
+  
+  #######################
+  ## Thalamus Glu.Gln ###
+  #######################
+  
   # examine emmeans
-  MThNAAG <- lmerTest::lmer(data = df1, NAAG ~ group_level*hemi+ Cr_gamadj1*group_level + (1|id))
-  emm <- emmeans(MThNAAG, ~ group_level | hemi, data = df1)
+  MThGlu.Gln <- lmerTest::lmer(data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThGlu.Gln, ~ group_level | hemi, data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr") 
+  
+  pdf('Figure_S2B_Thalamus_GluGln.pdf',height=5,width=6)
+  emm_df$Group <- emm_df$group_level
+  pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("N.S."), y.position = 5.0)
+  gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
+    geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
+    theme_minimal() + xlab('') + ylab('Thalamus Glu.Gln') + ylim(c(4,5.2)) +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16),
+          strip.text.x = element_text(size = 16)) + 
+    stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=8, bracket.size = 1.2)
+  print(gg1)
+  dev.off()
+  #######################
+  ## Thalamus GABA ## ###
+  #######################
+  
+  # examine emmeans
+  MThGABA<- lmerTest::lmer(data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'),  GABA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThGABA, ~ group_level | hemi, data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
+  pdf('Figure_S2B_Thalamus_GABA.pdf',height=5,width=6)
+  emm_df$Group <- emm_df$group_level
+  pvals <- data.frame(hemi = c("L","R"), group1 = c("HC"), group2 = c("SZ"), p.signif = c("***","N.S."), y.position = 1.75)
+  gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
+    geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
+    theme_minimal() + xlab('') + ylab('Thalamus GABA') + ylim(c(1,1.85)) +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16),
+          strip.text.x = element_text(size = 16)) + 
+    stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
+  print(gg1)
+  dev.off()
+  
+  #######################
+  ## Thalamus NAAG ######
+  #######################
+  
+  # examine emmeans
+  MThNAAG <- lmerTest::lmer(data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThNAAG, ~ group_level | hemi, data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  pdf('Figure_S2B_Thalamus_NAAG.pdf',height=5,width=6) 
+  emm_df$Group <- emm_df$group_level
+  pvals <- data.frame(hemi = c("L","R"), group1 = c("HC"), group2 = c("SZ"), p.signif = c("***","*"), y.position = 1.85)
+  gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
+    geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
+    theme_minimal() + xlab('') + ylab('Thalamus NAAG') + ylim(c(0.65,2)) +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16),
+          strip.text.x = element_text(size = 16)) + 
+    stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
+  print(gg1)
+  dev.off()
+  
+  #####################
+  #### Thalamus NAA ###
+  #####################
+  
+  # examine emmeans
+  MThNAA <- lmerTest::lmer(data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThNAA, ~ group_level | hemi, data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  pdf('Figure_S2B_Thalamus_NAA.pdf',height=5,width=6) 
+  emm_df$Group <- emm_df$group_level
+  pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("**"), y.position = 4.15)
+  gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
+    geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
+    theme_minimal() + xlab('') + ylab('Thalamus NAA') + ylim(c(2.5,4.3)) +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16),
+          strip.text.x = element_text(size = 16)) + 
+    stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
+  print(gg1)
+  dev.off()
+  
+  #######################
+  ## Thalamus mI ######
+  #######################
+  
+  # examine emmeans
+  MThmI <- lmerTest::lmer(data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThmI, ~ group_level | hemi, data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  pdf('Figure_S2B_Thalamus_mI.pdf',height=5,width=6) 
+  emm_df$Group <- emm_df$group_level
+  pvals <- data.frame(hemi = "R", group1 = c("HC"), group2 = c("SZ"), p.signif = c("***"), y.position = 3)
+  gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
+    geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
+    theme_minimal() + xlab('') + ylab('Thalamus mI') + ylim(c(0.75,3.25)) +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16),
+          strip.text.x = element_text(size = 16)) + 
+    stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
+  print(gg1)
+  dev.off()
+  
+}
+
+if (NoRef==T){
+  df1 <- df %>% mutate(Glu = Glu*Cr_gamadj,
+                      GABA = GABA*Cr_gamadj,
+                      mI = mI*Cr_gamadj,
+                      Glu.Gln = Glu.Gln*Cr_gamadj,
+                      NAAG = NAAG*Cr_gamadj,
+                      NAA = NAA*Cr_gamadj)
+  df1 <- df1 %>% ungroup()
+  df1 = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL')
+  
+  ThGlu <- tidy(lmerTest::lmer(data = df1, Glu ~ group_level*hemi + scale(GMrat) + sex + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
+  ThGABA <- tidy(lmerTest::lmer(data = df1, GABA ~ group_level*hemi + scale(GMrat) + sex + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
+  ThmI <- tidy(lmerTest::lmer(data = df1, mI ~ group_level*hemi + scale(GMrat) + sex + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
+  ThGluGln <- tidy(lmerTest::lmer(data = df1, Glu.Gln ~ group_level*hemi + sex + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GluGln')
+  ThNAAG <- tidy(lmerTest::lmer(data = df1, NAAG ~ group_level*hemi+ sex + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
+  ThNAA <- tidy(lmerTest::lmer(data = df1, NAA ~ group_level*hemi + sex + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
+  Mth1 <- rbind(ThGlu,ThGABA,ThmI,ThGluGln,ThNAAG,ThNAA) %>% mutate(roi = 'Thalamus')
+  
+  Mall_R_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
+  Mall_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
+  
+  
+  #######################
+  ## Thalamus Glu.Gln ###
+  #######################
+  
+  # examine emmeans
+  MThGlu.Gln <- lmerTest::lmer(data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThGlu.Gln, ~ group_level | hemi, data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr") 
+  
+  pdf('Figure_S2C_Thalamus_GluGln.pdf',height=5,width=6)
+  emm_df$Group <- emm_df$group_level
+  pvals <- data.frame(hemi = c("L","R"), group1 = c("HC"), group2 = c("SZ"), p.signif = c("***","***"), y.position = 1270)
+  gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
+    geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
+    theme_minimal() + xlab('') + ylab('Thalamus Glu.Gln') + ylim(c(0,1300)) +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16),
+          strip.text.x = element_text(size = 16)) + 
+    stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=8, bracket.size = 1.2)
+  print(gg1)
+  dev.off()
+  #######################
+  ## Thalamus GABA ## ###
+  #######################
+  
+  # examine emmeans
+  MThGABA<- lmerTest::lmer(data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'),  GABA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThGABA, ~ group_level | hemi, data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  pdf('Figure_S2C_Thalamus_GABA.pdf',height=5,width=6)
+  emm_df$Group <- emm_df$group_level
+  pvals <- data.frame(hemi = c("L","R"), group1 = c("HC"), group2 = c("SZ"), p.signif = c("***","***"), y.position = 365)
+  gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
+    geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
+    theme_minimal() + xlab('') + ylab('Thalamus GABA') + ylim(c(100,375)) +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16),
+          strip.text.x = element_text(size = 16)) + 
+    stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
+  print(gg1)
+  dev.off()
+  
+  #######################
+  ## Thalamus NAAG ######
+  #######################
+  
+  # examine emmeans
+  MThNAAG <- lmerTest::lmer(data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThNAAG, ~ group_level | hemi, data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  pdf('Figure_S2C_Thalamus_NAAG.pdf',height=5,width=6) 
+  emm_df$Group <- emm_df$group_level
+  pvals <- data.frame(hemi = c("L","R"), group1 = c("HC"), group2 = c("SZ"), p.signif = c("N.S.","***"), y.position = 415)
+  gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
+    geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
+    theme_minimal() + xlab('') + ylab('Thalamus NAAG') + ylim(c(110,425)) +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16),
+          strip.text.x = element_text(size = 16)) + 
+    stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
+  print(gg1)
+  dev.off()
+  
+  #####################
+  #### Thalamus NAA ###
+  #####################
+  
+  # examine emmeans
+  MThNAA <- lmerTest::lmer(data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThNAA, ~ group_level | hemi, data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  pdf('Figure_S2C_Thalamus_NAA.pdf',height=5,width=6) 
+  emm_df$Group <- emm_df$group_level
+  pvals <- data.frame(hemi = c("L","R"), group1 = c("HC"), group2 = c("SZ"), p.signif = c("***","***"), y.position = 930)
+  gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
+    geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
+    theme_minimal() + xlab('') + ylab('Thalamus NAA') + ylim(c(340,950)) +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16),
+          strip.text.x = element_text(size = 16)) + 
+    stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
+  print(gg1)
+  dev.off()
+  
+  #######################
+  ## Thalamus mI ######
+  #######################
+  
+  # examine emmeans
+  MThmI <- lmerTest::lmer(data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThmI, ~ group_level | hemi, data = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  pdf('Figure_S2C_Thalamus_mI.pdf',height=5,width=6) 
+  emm_df$Group <- emm_df$group_level
+  pvals <- data.frame(hemi = c("L","R"), group1 = c("HC"), group2 = c("SZ"), p.signif = c("*","N.S."), y.position = 665)
+  gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
+    geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
+    theme_minimal() + xlab('') + ylab('Thalamus mI') + ylim(c(200,700)) +
+    theme(axis.text.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16),
+          strip.text.x = element_text(size = 16)) + 
+    stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
+  print(gg1)
+  dev.off()
+  
 }
 
 if (Figure_3){
