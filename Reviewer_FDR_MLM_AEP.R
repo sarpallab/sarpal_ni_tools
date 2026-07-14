@@ -24,16 +24,16 @@ reload_new = F # 2026-07-02 post redoing GM
 reload = F
 reload_check_GM = F
 longitudinal = F
-group = T
-hilowdoi = F
+group = F
+hilowdoi = T
 eibalance = F
 group_r_nr = F
 # will reload just Sarpal / CZ data
 clinical = F
 handedness_group = F
 Figure_2 = F
-Creatine_Check  = F
-Ref2GPC.Cho = F
+Creatine_Check  = T
+Ref2mI = F
 NoRef = F # don't use this, need to apply a phantom correction
 Figure_3 = F
 Figure_4 = F
@@ -112,10 +112,10 @@ if (reload_new_20260706 == T){
   supplemental_data2 <- supplemental_data2 %>% filter(Timepoint != 0)
   supplemental_data2 <- supplemental_data2 %>%
     mutate(Remitter_Status = ifelse(CONCDIS4 <= 3 & HALL12 <= 3 & UTC15 <= 3, "R", "NR"), timepoint = Timepoint)
-  supplemental_data2 <- supplemental_data2 %>% select(RECID,POSSX,Remitter_Status, timepoint)
+  supplemental_data2 <- supplemental_data2 %>% select(RECID,POSSX, TOTAL,Remitter_Status, timepoint)
   supplemental_dataBL <- read_excel('BPRS_items_MIKE.xlsx')
   supplemental_dataBL <- supplemental_dataBL %>% filter(Timepoint == 0) %>% mutate(timepoint = Timepoint, Remitter_Status = NA)
-  supplemental_dataBL <- supplemental_dataBL %>% select(RECID, POSSX,timepoint,Remitter_Status)
+  supplemental_dataBL <- supplemental_dataBL %>% select(RECID, POSSX,TOTAL,timepoint,Remitter_Status)
   supplemental_data2 <- rbind(supplemental_data2, supplemental_dataBL)
   supplemental_data2 <- supplemental_data2 %>% group_by(RECID) %>% tidyr::fill(Remitter_Status, .direction = "downup") %>% ungroup() %>% mutate(timepoint = case_when(timepoint == 0 ~ 1,
                                                                                                                                                                       timepoint > 0 ~ 2))
@@ -130,7 +130,7 @@ if (reload_new_20260706 == T){
                                             timepoint == 3 ~ 'extra'))
   df <- full_join(df,supplemental_data2,by=c('id','timepoint'))
   df$doi_m <- df$`DUP (months)`
-  df <- df %>% dplyr::select(id,doi_m,Cr_gamadj, region,group_level,timepoint,age,sex,POSSX,Remitter_Status,GMrat,GPC.Cr_gamadj,Glc.Cr_gamadj,Glu.Cr_gamadj,GPC.Cho.Cr_gamadj,GABA.Cr_gamadj,NAA.Cr_gamadj,mI.Cr_gamadj,Gln.Cr_gamadj,NAAG.Cr_gamadj,Glu.Gln.Cr_gamadj)
+  df <- df %>% dplyr::select(id,doi_m,Cr_gamadj, region,group_level,timepoint,age,sex,POSSX,TOTAL,Remitter_Status,GMrat,GPC.Cr_gamadj,Glc.Cr_gamadj,Glu.Cr_gamadj,GPC.Cho.Cr_gamadj,GABA.Cr_gamadj,NAA.Cr_gamadj,mI.Cr_gamadj,Gln.Cr_gamadj,NAAG.Cr_gamadj,Glu.Gln.Cr_gamadj)
   df <- df %>% mutate(roi = case_when(region == 'R Caudate' ~ 'R Caudate',
                                       region == 'right caudate' ~ 'R Caudate',
                                       region == 'L Caudate' ~ 'L Caudate',
@@ -368,15 +368,15 @@ if (nan_out_Crgamadj==T){
   df$NAAG[df$NAAG <= 0] = NA
   
   df <- df %>% select(!Glc) # No Glc data in SSD
-  df0 <- df %>% group_by(group_level,id) %>% slice(1) %>% ungroup() %>% group_by(group_level) %>% summarize(mA = mean(age, na.rm=TRUE), sA = sd(age,na.rm=TRUE), N= n()) %>% ungroup()
-  dfbprs <- df %>% filter(group_level == 'SZ') %>% group_by(id,timepoint) %>% slice(1) %>% ungroup() %>% group_by(timepoint) %>% summarize(mbprs = mean(POSSX,na.rm=TRUE), sbprs = sd(POSSX,na.rm=TRUE)) %>% ungroup()
+  df0 <- df %>% group_by(group_level,id) %>% slice(1) %>% ungroup() %>% group_by(group_level) %>% summarize(mA = mean(age, na.rm=TRUE), sA = sd(age,na.rm=TRUE), N= n(), mDOI = mean(doi_m,na.rm=T), sDOI = sd(doi_m,na.rm=T)) %>% ungroup()
+  dfbprs <- df %>% filter(group_level == 'SZ') %>% group_by(id,timepoint) %>% slice(1) %>% ungroup() %>% group_by(timepoint) %>% summarize(mbprs = mean(POSSX,na.rm=TRUE), sbprs = sd(POSSX,na.rm=TRUE),mTbprs = mean(TOTAL,na.rm=TRUE), sTbprs = sd(TOTAL,na.rm=TRUE)) %>% ungroup()
   
   df2 <- df %>% group_by(group_level,id) %>% slice(1) %>% ungroup()
   df1 <- df2 %>% select(group_level,sex) %>% mutate(sex = case_when(sex == 'M' ~ 1, sex == 'F' ~ 2), group_level = case_when(group_level == 'HC' ~ 1, group_level == 'SZ' ~ 2))
-  df1 <- as.matrix(df1)
-  counts_table <- table(df1[, "group_level"], df1[, "sex"])
+  counts_table <- table(df1$group_level, df1$sex)
   st <- chisq.test(counts_table)
   
+  wt <- wilcox.test(df2$age[df2$group_level=='HC'],df2$age[df2$group_level=='SZ'])
 }
 
 
@@ -1129,15 +1129,15 @@ if (hilowdoi==T){
   Mall_low_r <- rbind(Mth1,Mca1) %>% filter(term %in% c('doigrlow:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% filter(pfdr < 0.05)
   Mall_low <- rbind(Mth1,Mca1) %>% filter(term %in% c('doigrlow')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% filter(pfdr < 0.05)
 
-  M <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'),  Glu ~ doigr*hemi + sex + scale(GMrat) + (1|id))
+  M <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'),  mI ~ doigr*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(M, ~ doigr | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
   
   
-  Th <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), mI ~ doigr*hemi + sex + scale(GMrat) + (1|id))
-  emm <- emmeans(Th, ~ doigr | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
+  Th <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAAG ~ doigr*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(Th, ~ doigr | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
@@ -3254,7 +3254,7 @@ if (Creatine_Check){
   
 }
 
-if (Ref2GPC.Cho==T){
+if (Ref2mI==T){
   
   # df1 <- df %>% mutate(Glu = Glu*Cr_gamadj,
   #                     GABA = GABA*Cr_gamadj,
@@ -3283,13 +3283,13 @@ if (Ref2GPC.Cho==T){
   # emm_df <- as.data.frame(emm)
   # pairs(emm,adjust = "fdr")
   
-  df1 <- df %>% mutate(Glu = Glu/GPC.Cho,
-                       GABA = GABA/GPC.Cho,
-                       mI = mI/GPC.Cho,
-                       Glu.Gln = Glu.Gln/GPC.Cho,
-                       NAAG = NAAG/GPC.Cho,
-                       NAA = NAA/GPC.Cho,
-                       GPC.Cho = GPC.Cho*Cr_gamadj)
+  df1 <- df %>% mutate(Glu = Glu/mI,
+                       GABA = GABA/mI,
+                       mI = mI/mI,
+                       Glu.Gln = Glu.Gln/mI,
+                       NAAG = NAAG/mI,
+                       NAA = NAA/mI,
+                       mI = mI*Cr_gamadj)
   df1 <- df1 %>% ungroup()
   df1 = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL')
   
@@ -3320,10 +3320,10 @@ if (Ref2GPC.Cho==T){
   
   pdf('Figure_S2B_Thalamus_GluGln.pdf',height=5,width=6)
   emm_df$Group <- emm_df$group_level
-  pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("N.S."), y.position = 5.0)
+  pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("N.S."), y.position = 1.8)
   gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
     geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
-    theme_minimal() + xlab('') + ylab('Thalamus Glu.Gln') + ylim(c(4,5.2)) +
+    theme_minimal() + xlab('') + ylab('Thalamus Glu.Gln') + ylim(c(1,2)) +
     theme(axis.text.y = element_text(size = 14),
           axis.text.x = element_text(size = 14),
           legend.text = element_text(size = 14),
