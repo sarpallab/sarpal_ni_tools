@@ -129,7 +129,7 @@ for (thisroi in roiset) {
   }
 }
 
-save(sz_met_out, file='20260706-SSD-gamadj.Rdata')
+save(sz_met_out, file='20260715-SSD-gamadj.Rdata')
 
 # adj.df.wide <- merge(
 #   adj.df %>% select(-met.adj) %>% pivot_wider(names_from = metname, values_from = met),
