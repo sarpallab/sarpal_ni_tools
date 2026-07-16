@@ -2061,7 +2061,7 @@ if (group_r_nr==T){
   effsz <- eff_size(emm, sigma = sigma(CaGlu), edf = df.residual(MCaGlu))
   effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   
-  Ca <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAA ~ group*hemi + sex + scale(GMrat) + (1|id))
+  Ca <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu.Gln ~ group*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(Ca, ~ group | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
