@@ -32,13 +32,14 @@ group_r_nr = F
 clinical = F
 handedness_group = F
 Figure_2 = F
-Creatine_Check  = F
+Creatine_Check  = T
 Ref2mI = F
 NoRef = F # don't use this, need to apply a phantom correction
 Figure_3 = F
 Figure_4 = F
 corr_heatmap = F
-corr_heatmap_raw = T
+corr_heatmap_raw = F
+group_FU_supp = F
 #The manuscript states that FDR correction was performed by accounting for metabolites within each ROI. 
 # However, the statistical inference and biological interpretation are made across three ROIs. 
 # Please state exactly which p-values were included in each FDR correction family. 
@@ -46,9 +47,9 @@ corr_heatmap_raw = T
 # includes all ROI-by-metabolite tests within each type of analysis, and report whether the main findings remain significant.
 
 # macbook
- basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
+# basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
 # macmini
-#basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
+basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
 setwd(basedir)
 
 #df <- read_csv('20260708-final-dataset-MRSI-2.csv')
@@ -1104,17 +1105,23 @@ if (longitudinal==T){
   Mall_R_FU_r <- rbind(Mth,Mca) %>% filter(term %in% c('conditionR_FU:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% filter(pfdr < 0.05)
   
   
-  M <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), NAA ~ condition*hemi + sex + scale(GMrat) + (1|id))
-  emm <- emmeans(M, ~ condition | hemi, data = df %>% filter(roi == 'Caudate'))
+  Ca <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), NAA ~ condition*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(Ca, ~ condition | hemi, data = df %>% filter(roi == 'Caudate'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
   
-  M <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Glu.Gln ~ condition*hemi + sex + scale(GMrat) + (1|id))
-  emm <- emmeans(M, ~ condition | hemi, data = df %>% filter(roi == 'Thalamus'))
+  effsz <- eff_size(emm, sigma = sigma(Ca), edf = df.residual(Ca))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
+  
+  Th <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Glu ~ condition*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(Th, ~ condition | hemi, data = df %>% filter(roi == 'Thalamus'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
+  effsz <- eff_size(emm, sigma = sigma(Th), edf = df.residual(Th))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   
   M <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), Glu.Gln ~ condition*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(M, ~ condition | hemi, data = df %>% filter(roi == 'Caudate'))
@@ -1172,18 +1179,23 @@ if (hilowdoi==T){
 
   df$Cr_gamadj1 <- scale(Winsorize(df$Cr_gamadj, val = quantile(df$Cr_gamadj,probs = c(0.05,0.95),na.rm=TRUE)))
   
-  M <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'),  mI ~ doigr*hemi + sex + scale(GMrat) + (1|id))
+  M <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'),  Glu ~ doigr*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(M, ~ doigr | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
   
+  effsz <- eff_size(emm, sigma = sigma(M), edf = df.residual(M))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   
-  Th <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), mI ~ doigr*hemi + sex + scale(GMrat) + (1|id))
+  Th <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAAG ~ doigr*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(Th, ~ doigr | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
+  effsz <- eff_size(emm, sigma = sigma(Th), edf = df.residual(Th))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   
 }
 
@@ -1233,7 +1245,8 @@ if (group==T){
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
-
+  effsz <- eff_size(emm, sigma = sigma(MCaGlu), edf = df.residual(MCaGlu))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   # fv <- fitted(MCaGlu)
   # rsq <- (residuals(MCaGlu))^2
   # valid_indices <- which(fv > 0 & rsq > 0)
@@ -1262,6 +1275,9 @@ if (group==T){
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
   
+  effsz <- eff_size(emm, sigma = sigma(MThGPC.Cho), edf = df.residual(MThGPC.Cho))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
+  
   # examine emmeans
   MCaGABA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GABA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(MCaGABA, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
@@ -1275,6 +1291,9 @@ if (group==T){
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
+  effsz <- eff_size(emm, sigma = sigma(MThGABA), edf = df.residual(MThGABA))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   
   fv <- fitted(MThGABA)
   rsq <- (residuals(MThGABA))^2
@@ -1305,13 +1324,9 @@ if (group==T){
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
- 
-  # examine emmeans
-  MThGluGln <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))
-  emm <- emmeans(MThGluGln, ~ hemi | group_level, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
-  # Convert to data frame
-  emm_df <- as.data.frame(emm)
-  pairs(emm,adjust = "fdr")
+  
+  effsz <- eff_size(emm, sigma = sigma(MThGluGln), edf = df.residual(MThGluGln))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   
   # examine emmeans
   MThGluGln <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))
@@ -1324,11 +1339,14 @@ if (group==T){
   df$Cr_gamadj1 <- scale(Winsorize(df$Cr_gamadj, val = quantile(df$Cr_gamadj,probs = c(0.05,0.95),na.rm=TRUE)))
   
   # examine emmeans
-  MThmI <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), mIorig ~ group_level*hemi + sex + scale(GMrat) + Cr_gamadj1 + (1|id))
+  MThmI <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(MThmI, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
+  effsz <- eff_size(emm, sigma = sigma(MThmI), edf = df.residual(MThmI))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   
   # this one is -2 => Variance is inversely proportional to the mean squared, inverse heteroscedasticity
   fv <- fitted(MThmI)
@@ -1341,15 +1359,30 @@ if (group==T){
   
   # How to fix:
   # 1. Extract the fitted gamma from your Park model
-  # gamma_hat <- coef(park_model)["ln_fitted"]
+  gamma_hat <- coef(park_model)["ln_fitted"]
   # 
   # # 2. Calculate the weights (Inverse of variance)
   # # Since Var = Mean^Gamma, Weight = 1 / (Mean^Gamma)
-  # weights_wls <- 1 / (fitted_vals^gamma_hat)
-  # 
+  weights_wls <- 1 / (fv^gamma_hat)
+  filtered_idx <- df$roi == 'Thalamus'
+  data = df %>% filter(roi == 'Thalamus')
   # # 3. Re-run your baseline model with weights
-  # wls_model <- lm(y ~ x1 + x2, data = your_data, weights = weights_wls)
-  # summary(wls_model)
+  wls_model <- lmerTest::lmer(mIorig ~ group_level*hemi + sex + scale(GMrat) + (1|id), data = data, weights = weights_wls[filtered_idx])
+  summary(wls_model)
+  emm <- emmeans(wls_model, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MCamI <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MCamI, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  effsz <- eff_size(emm, sigma = sigma(MCamI), edf = df.residual(MCamI))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   
   # examine emmeans
   MCamI <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))
@@ -1374,7 +1407,10 @@ if (group==T){
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
   
-  # N.S.
+  effsz <- eff_size(emm, sigma = sigma(MThNAAG), edf = df.residual(MThNAAG))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
+  
+  # this one is -2 => Variance is inversely proportional to the mean squared, inverse heteroscedasticity
   fv <- fitted(MThNAAG)
   rsq <- (residuals(MThNAAG))^2
   valid_indices <- which(fv > 0 & rsq > 0)
@@ -1382,6 +1418,23 @@ if (group==T){
   ln_fitted <- log(fv[valid_indices])
   park_model <- lm(ln_res_sq ~ ln_fitted)
   summary(park_model)
+  
+  # How to fix:
+  # 1. Extract the fitted gamma from your Park model
+  gamma_hat <- coef(park_model)["ln_fitted"]
+  # 
+  # # 2. Calculate the weights (Inverse of variance)
+  # # Since Var = Mean^Gamma, Weight = 1 / (Mean^Gamma)
+  weights_wls <- 1 / (fv^gamma_hat)
+  filtered_idx <- df$roi == 'Thalamus'  & df$timepoint == 'BL'
+  data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL')
+  # # 3. Re-run your baseline model with weights
+  wls_model <- lmerTest::lmer(NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id), data = data, weights = weights_wls[filtered_idx])
+  summary(wls_model)
+  emm <- emmeans(wls_model, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
   
   # examine emmeans, yes there is more in L in HC and more in R in SZ
   MThNAAG <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))
@@ -1396,6 +1449,9 @@ if (group==T){
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
+  effsz <- eff_size(emm, sigma = sigma(MThNAA), edf = df.residual(MThNAA))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   
   # N.S.
   fv <- fitted(MThNAA)
@@ -1412,6 +1468,11 @@ if (group==T){
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
+  effsz <- eff_size(emm, sigma = sigma(MCaNAA), edf = df.residual(MCaNAA))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
+  
+  
   
   # examine emmeans
   MCaNAA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
@@ -1447,6 +1508,9 @@ if (group==T){
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
   
+  effsz <- eff_size(emm, sigma = sigma(MCaGluGln), edf = df.residual(MCaGluGln))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
+  
   fv <- fitted(MCaGluGln)
   rsq <- (residuals(MCaGluGln))^2
   valid_indices <- which(fv > 0 & rsq > 0)
@@ -1460,6 +1524,9 @@ if (group==T){
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
+  effsz <- eff_size(emm, sigma = sigma(MCaGABA), edf = df.residual(MCaGABA))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   
 }
 
@@ -1503,6 +1570,7 @@ if (eibalance){
   ccCa <- cocor(~Glu_HC_Caudate + GABA_HC_Caudate | Glu_SZ_Caudate + GABA_SZ_Caudate, dfw, alternative = 'two.sided')
   print(ccCa)
   
+  
   dfw <- df %>% pivot_wider(id_cols = id, names_from = c('group_level','roi','timepoint'), values_from = c('GMrat','Glu','GPC.Cho','GABA','NAA','mI','Gln','NAAG','Glu.Gln'))
   dfw <- as.data.frame(dfw)
   
@@ -1523,6 +1591,7 @@ if (eibalance){
   
   ccTh <- cocor(~Glu_HC_Thalamus + GABA_HC_Thalamus | Glu_SZ_Thalamus + GABA_SZ_Thalamus, dfw, alternative = 'two.sided')
   print(ccTh)
+  
   #####################
   #### left side #####
   #####################
@@ -1989,11 +2058,17 @@ if (group_r_nr==T){
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
   
+  effsz <- eff_size(emm, sigma = sigma(CaGlu), edf = df.residual(MCaGlu))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
+  
   Ca <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAA ~ group*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(Ca, ~ group | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
+  effsz <- eff_size(emm, sigma = sigma(Ca), edf = df.residual(Ca))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   
   
   fv <- fitted(Ca)
@@ -2012,11 +2087,14 @@ if (group_r_nr==T){
   pairs(emm,adjust = "fdr")
   
   
-  Th <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu ~ group*hemi + sex + scale(GMrat) + (1|id))
+  Th <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAAG ~ group*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(Th, ~ group | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
+  effsz <- eff_size(emm, sigma = sigma(Th), edf = df.residual(Th))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   
   fv <- fitted(Th)
   rsq <- (residuals(Th))^2
@@ -2866,9 +2944,10 @@ if (Creatine_Check){
   
   
   dg <- rbind(dg,szmet_new)
+  
   df <- left_join(df,dg,by=c('id','timepoint','roi','hemi'))
   
-  df <- df <- mutate(Cr_gamadj1 = case_when(Cr.SD > 20 | Cr < 0.01 | Cr > 5*sd(Cr,na.rm=T) ~ NA_real_, TRUE ~ Cr))
+  df <- df %>% mutate(Cr_gamadj1 = case_when(Cr.SD > 20 | Cr < 0.01 | Cr > 5*sd(Cr,na.rm=T) ~ NA_real_, TRUE ~ Cr))
   df$Cr_gamadj1 <- scale(Winsorize(df$Cr_gamadj, val = quantile(df$Cr_gamadj,probs = c(0.05,0.95),na.rm=TRUE)))
   
   df <- df %>% group_by(id,roi,hemi,timepoint) %>% slice(1) %>% ungroup()
@@ -2889,6 +2968,11 @@ if (Creatine_Check){
   pairs(emm,adjust = "fdr")
   
   emm <- emmeans(MCrTh, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  emm <- emmeans(MCrTh, ~ hemi | group_level, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
@@ -3039,6 +3123,11 @@ if (Creatine_Check){
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr") 
   
+  effsz <- eff_size(emm, sigma = sigma(MThGlu.Gln), edf = df.residual(MThGlu.Gln))
+  effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
+  
+  
+  
   pdf('Figure_S2A_Thalamus_GluGln.pdf',height=5,width=6)
   emm_df$Group <- emm_df$group_level
   pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("*"), y.position = 2.0)
@@ -3121,6 +3210,7 @@ if (Creatine_Check){
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
   
   pdf('Figure_S2A_Caudate_GPC_Cho.pdf',height=5,width=6)
   emm_df$Group <- emm_df$group_level
@@ -4201,7 +4291,7 @@ if (corr_heatmap_raw ==T){
   dfc_hc_th <- dfc %>% filter(group_level == 'HC' & roi == 'Thalamus')
   dfc_dz_th <- dfc %>% filter(group_level == 'SZ' & roi == 'Thalamus')
   
-  col2rem <- c('id','group_level','roi','hemi','TOTAL','mI/Cre','mI.Cr','mIorig','doi_m','age','POSSX','GMrat','nsess','age_sc','Gln')
+  col2rem <- c('id','group_level','roi','hemi','TOTAL','mI/Cre','mI.Cr','mIorig','doi_m','age','POSSX','nsess','age_sc','Gln')
   
   remNAAGca <- c('NAAG')
   remGPCth <- c('GPC')
@@ -4220,8 +4310,8 @@ if (corr_heatmap_raw ==T){
   p_matrix_cm_hc_th <- cor_pmat(cm_hc_th, use = "pairwise.complete.obs")
   p_matrix_cm_sz_th <- cor_pmat(cm_sz_th, use = "pairwise.complete.obs")
   
-  custom_order_ca <- c('Glu','Glu.Gln','GABA','Cr_gamadj','NAA','mI','GPC','GPC.Cho')
-  custom_order_th <- c('Glu','Glu.Gln','GABA','Cr_gamadj','NAA','NAAG','mI','GPC.Cho')  
+  custom_order_ca <- c('Glu','Glu.Gln','GABA','Cr_gamadj','GMrat','NAA','mI','GPC','GPC.Cho')
+  custom_order_th <- c('Glu','Glu.Gln','GABA','Cr_gamadj','GMrat','NAA','NAAG','mI','GPC.Cho')  
   
   cm_hc_ca <- cm_hc_ca[custom_order_ca, custom_order_ca]
   cm_sz_ca <- cm_sz_ca[custom_order_ca, custom_order_ca]
@@ -4291,5 +4381,280 @@ if (corr_heatmap_raw ==T){
     panel.grid.minor = element_blank())
   print(gg1)
   dev.off()
+  
+}
+
+if (group_FU_supp == T){
+  
+  
+  # 2026-06-04 Will need to add hemi eventually
+  ThGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Glu ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
+  ThGABA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), GABA ~ group_level*hemi + sex  + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
+  ThmI <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), mI ~ group_level*hemi + sex  + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
+  #ThGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Gln ~ group_level*hemi + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Gln')
+  ThGluGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Glu.Gln ~ group_level*hemi + sex  + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GluGln')
+  ThNAAG <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAAG ~ group_level*hemi + sex  + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
+  ThNAA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAA ~ group_level*hemi + sex  + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
+  # convergence issues in this lmer model, low variance at the subject level so just use lm
+  #ThGpc <- tidy(lm(data = df %>% filter(roi == 'Thalamus'), GPC ~ group_level*hemi + scale(GMrat))) %>% mutate(metabolite = 'GPC')
+  ThCho <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), GPC.Cho ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GPC.Cho')
+  Mth1 <- rbind(ThGlu,ThGABA,ThmI,ThGluGln,ThNAAG,ThNAA,ThCho) %>% mutate(roi = 'Thalamus')
+  
+  
+  CaGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), Glu ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
+  CaGABA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), GABA ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
+  CamI <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
+  #CaGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Gln')
+  CaGluGln <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GluGln')
+  #CaNAAG <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
+  CaNAA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
+  # convergence issues in this lmer model, low variance at the subject level so just use lm
+  CaGpc <- tidy(lm(data = df %>% filter(roi == 'Caudate'), GPC ~ group_level*hemi + sex + scale(GMrat))) %>% mutate(metabolite = 'GPC')
+  CaCho <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), GPC.Cho ~ group_level*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GPC.Cho')
+  Mca1 <- rbind(CaGlu,CaGABA,CamI,CaGluGln,CaNAA,CaGpc,CaCho) %>% mutate(roi = 'Caudate')
+  
+  Mall_R_SZ <- rbind(Mth1,Mca1) %>% filter(term %in% c('group_levelSZ:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr) %>% filter(pfdr < 0.05)
+  Mall_SZ <- rbind(Mth1,Mca1) %>% filter(term %in% c('group_levelSZ')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr) %>% filter(pfdr < 0.05)
+  
+  
+  library(emmeans)
+  
+  # examine emmeans
+  MCaGlu <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'),  Glu ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MCaGlu, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # fv <- fitted(MCaGlu)
+  # rsq <- (residuals(MCaGlu))^2
+  # valid_indices <- which(fv > 0 & rsq > 0)
+  # ln_res_sq <- log(rsq[valid_indices])
+  # ln_fitted <- log(fv[valid_indices])
+  # park_model <- lm(ln_res_sq ~ ln_fitted)
+  # summary(park_model)
+  # 
+  # MCaGlu <- glmer(data = df %>% filter(roi == 'Caudate'),  Glu ~ group_level*hemi + sex + scale(GMrat) + (1|id), family = inverse.gaussian(link = "1/mu^2"))
+  # emm <- emmeans(MCaGlu, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate'))
+  # # Convert to data frame
+  # emm_df <- as.data.frame(emm)
+  # pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MCaGPC.Cho <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'),  GPC.Cho ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MCaGPC.Cho, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThGPC.Cho <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'),  GPC.Cho ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThGPC.Cho, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MCaGABA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), GABA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MCaGABA, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThGABA <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), GABA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThGABA, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  fv <- fitted(MThGABA)
+  rsq <- (residuals(MThGABA))^2
+  valid_indices <- which(fv > 0 & rsq > 0)
+  ln_res_sq <- log(rsq[valid_indices])
+  ln_fitted <- log(fv[valid_indices])
+  park_model <- lm(ln_res_sq ~ ln_fitted)
+  summary(park_model)
+  
+  # examine emmeans
+  MThGlu <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Glu ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThGlu, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  fv <- fitted(MThGlu)
+  rsq <- (residuals(MThGlu))^2
+  valid_indices <- which(fv > 0 & rsq > 0)
+  ln_res_sq <- log(rsq[valid_indices])
+  ln_fitted <- log(fv[valid_indices])
+  park_model <- lm(ln_res_sq ~ ln_fitted)
+  summary(park_model)
+  
+  # examine emmeans
+  MThGluGln <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThGluGln, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThGluGln <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThGluGln, ~ hemi | group_level, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThGluGln <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThGluGln, ~ hemi | group_level, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  #df <- df %>% mutate(Cr_gamadj1 = case_when(Cr.SD > 20 | Cr < 0.01 | Cr > 5*sd(Cr,na.rm=T) ~ NA_real_, TRUE ~ Cr))
+  df$Cr_gamadj1 <- scale(Winsorize(df$Cr_gamadj, val = quantile(df$Cr_gamadj,probs = c(0.05,0.95),na.rm=TRUE)))
+  
+  # examine emmeans
+  MThmI <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), mIorig ~ group_level*hemi + sex + scale(GMrat) + Cr_gamadj1 + (1|id))
+  emm <- emmeans(MThmI, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # this one is -2 => Variance is inversely proportional to the mean squared, inverse heteroscedasticity
+  fv <- fitted(MThmI)
+  rsq <- (residuals(MThmI))^2
+  valid_indices <- which(fv > 0 & rsq > 0)
+  ln_res_sq <- log(rsq[valid_indices])
+  ln_fitted <- log(fv[valid_indices])
+  park_model <- lm(ln_res_sq ~ ln_fitted)
+  summary(park_model)
+  
+  # How to fix:
+  # 1. Extract the fitted gamma from your Park model
+  gamma_hat <- coef(park_model)["ln_fitted"]
+  # 
+  # # 2. Calculate the weights (Inverse of variance)
+  # # Since Var = Mean^Gamma, Weight = 1 / (Mean^Gamma)
+  weights_wls <- 1 / (fv^gamma_hat)
+  filtered_idx <- df$roi == 'Thalamus'
+  data = df %>% filter(roi == 'Thalamus')
+  # # 3. Re-run your baseline model with weights
+  wls_model <- lmerTest::lmer(mIorig ~ group_level*hemi + sex + scale(GMrat) + (1|id), data = data, weights = weights_wls[filtered_idx])
+  summary(wls_model)
+  emm <- emmeans(wls_model, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  # examine emmeans
+  MCamI <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MCamI, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # this one is significant, variance scales linearly with the mean, consider using Poisson GLM
+  fv <- fitted(MCamI)
+  rsq <- (residuals(MCamI))^2
+  valid_indices <- which(fv > 0 & rsq > 0)
+  ln_res_sq <- log(rsq[valid_indices])
+  ln_fitted <- log(fv[valid_indices])
+  park_model <- lm(ln_res_sq ~ ln_fitted)
+  summary(park_model)
+  
+  # examine emmeans
+  MThNAAG <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThNAAG, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # N.S.
+  fv <- fitted(MThNAAG)
+  rsq <- (residuals(MThNAAG))^2
+  valid_indices <- which(fv > 0 & rsq > 0)
+  ln_res_sq <- log(rsq[valid_indices])
+  ln_fitted <- log(fv[valid_indices])
+  park_model <- lm(ln_res_sq ~ ln_fitted)
+  summary(park_model)
+  
+  # examine emmeans, yes there is more in L in HC and more in R in SZ
+  MThNAAG <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThNAAG, ~ hemi | group_level, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThNAA <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThNAA, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # N.S.
+  fv <- fitted(MThNAA)
+  rsq <- (residuals(MThNAA))^2
+  valid_indices <- which(fv > 0 & rsq > 0)
+  ln_res_sq <- log(rsq[valid_indices])
+  ln_fitted <- log(fv[valid_indices])
+  park_model <- lm(ln_res_sq ~ ln_fitted)
+  summary(park_model)
+  
+  # examine emmeans
+  MCaNAA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MCaNAA, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MCaNAA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MCaNAA, ~ hemi | group_level, data = df %>% filter(roi == 'Caudate'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MThNAAG <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAAG ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThNAAG, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # examine emmeans
+  MCamI <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MCamI, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  # # Create a customized plot
+  # ggplot(emm_df, aes(x = group_level, y = emmean, color = hemi, group=hemi)) +
+  #   geom_point(size = 3) +
+  #   geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) +
+  #   theme_minimal() +
+  #   labs(title = "Model-Predicted Means by Group",
+  #        y = "Estimated Marginal Mean",
+  #        x = "Group")
+  MCaGluGln <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), Glu.Gln ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MCaGluGln, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  fv <- fitted(MCaGluGln)
+  rsq <- (residuals(MCaGluGln))^2
+  valid_indices <- which(fv > 0 & rsq > 0)
+  ln_res_sq <- log(rsq[valid_indices])
+  ln_fitted <- log(fv[valid_indices])
+  park_model <- lm(ln_res_sq ~ ln_fitted)
+  summary(park_model)
+  
+  MCaGABA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), GABA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MCaGABA, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
   
 }
