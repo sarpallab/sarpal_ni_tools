@@ -26,7 +26,7 @@ reload_check_GM = F
 longitudinal = F
 group = F
 hilowdoi = F
-eibalance = T
+eibalance = F
 group_r_nr = F
 # will reload just Sarpal / CZ data
 clinical = F
@@ -38,6 +38,7 @@ NoRef = F # don't use this, need to apply a phantom correction
 Figure_3 = F
 Figure_4 = F
 corr_heatmap = F
+corr_heatmap_raw = T
 #The manuscript states that FDR correction was performed by accounting for metabolites within each ROI. 
 # However, the statistical inference and biological interpretation are made across three ROIs. 
 # Please state exactly which p-values were included in each FDR correction family. 
@@ -4080,7 +4081,8 @@ if (corr_heatmap ==T){
   dfc_hc_th <- dfc %>% filter(group_level == 'HC' & roi == 'Thalamus')
   dfc_dz_th <- dfc %>% filter(group_level == 'SZ' & roi == 'Thalamus')
   
-  col2rem <- c('id','group_level','roi','hemi','doi_m','Cr_gamadj','age','POSSX','GMrat','nsess','age_sc','Gln')
+  #col2rem <- c('id','group_level','roi','hemi','doi_m','Cr_gamadj','age','POSSX','GMrat','nsess','age_sc','Gln')
+  col2rem <- c('id','group_level','roi','hemi','TOTAL','mI/Cre','mI.Cre','mIorig','doi_m','age','POSSX','GMrat','Cr_gamadj','nsess','age_sc','Gln')
   
   remNAAGca <- c('NAAG')
   remGPCth <- c('GPC')
@@ -4175,6 +4177,118 @@ if (corr_heatmap ==T){
           legend.title = element_text(size = 16),
           axis.title.x = element_text(size = 16),
           axis.title.y = element_text(size = 16))
+  print(gg1)
+  dev.off()
+  
+}
+
+if (corr_heatmap_raw ==T){
+  
+  library(ggcorrplot)
+  
+  dfc <- df %>% filter(timepoint == 'BL') %>% group_by(id,group_level,roi) %>%
+    summarize(across(where(is.numeric), \(x) mean(x, na.rm=TRUE))) %>%
+    ungroup()
+  dfc <- dfc %>% mutate(Glu = Glu*Cr_gamadj,
+                       GABA = GABA*Cr_gamadj,
+                       mI = mI*Cr_gamadj,
+                       Glu.Gln = Glu.Gln*Cr_gamadj,
+                       NAAG = NAAG*Cr_gamadj,
+                       NAA = NAA*Cr_gamadj,
+                       GPC.Cho = GPC.Cho*Cr_gamadj)
+  dfc_hc_ca <- dfc %>% filter(group_level == 'HC' & roi == 'Caudate')
+  dfc_dz_ca <- dfc %>% filter(group_level == 'SZ' & roi == 'Caudate')
+  dfc_hc_th <- dfc %>% filter(group_level == 'HC' & roi == 'Thalamus')
+  dfc_dz_th <- dfc %>% filter(group_level == 'SZ' & roi == 'Thalamus')
+  
+  col2rem <- c('id','group_level','roi','hemi','TOTAL','mI/Cre','mI.Cr','mIorig','doi_m','age','POSSX','GMrat','nsess','age_sc','Gln')
+  
+  remNAAGca <- c('NAAG')
+  remGPCth <- c('GPC')
+  dfc_hc_ca <- dfc_hc_ca %>% select(-any_of(col2rem)) %>% select(-any_of(remNAAGca))
+  dfc_dz_ca <- dfc_dz_ca %>% select(-any_of(col2rem)) %>% select(-any_of(remNAAGca))
+  dfc_hc_th <- dfc_hc_th %>% select(-any_of(col2rem)) %>% select(-any_of(remGPCth))
+  dfc_dz_th <- dfc_dz_th %>% select(-any_of(col2rem)) %>% select(-any_of(remGPCth))
+  
+  cm_hc_ca <- cor(dfc_hc_ca, use = "complete.obs")
+  cm_sz_ca <- cor(dfc_dz_ca, use = "complete.obs")
+  cm_hc_th <- cor(dfc_hc_th, use = "complete.obs")
+  cm_sz_th <- cor(dfc_dz_th, use = "complete.obs")
+  
+  p_matrix_cm_hc_ca <- cor_pmat(cm_hc_ca, use = "pairwise.complete.obs")
+  p_matrix_cm_sz_ca <- cor_pmat(cm_sz_ca, use = "pairwise.complete.obs")
+  p_matrix_cm_hc_th <- cor_pmat(cm_hc_th, use = "pairwise.complete.obs")
+  p_matrix_cm_sz_th <- cor_pmat(cm_sz_th, use = "pairwise.complete.obs")
+  
+  custom_order_ca <- c('Glu','Glu.Gln','GABA','Cr_gamadj','NAA','mI','GPC','GPC.Cho')
+  custom_order_th <- c('Glu','Glu.Gln','GABA','Cr_gamadj','NAA','NAAG','mI','GPC.Cho')  
+  
+  cm_hc_ca <- cm_hc_ca[custom_order_ca, custom_order_ca]
+  cm_sz_ca <- cm_sz_ca[custom_order_ca, custom_order_ca]
+  cm_hc_th <- cm_hc_th[custom_order_th, custom_order_th]
+  cm_sz_th <- cm_sz_th[custom_order_th, custom_order_th]
+  
+  rownames(cm_hc_ca) <- factor(rownames(cm_hc_ca), levels = custom_order_ca)
+  colnames(cm_hc_ca) <- factor(colnames(cm_hc_ca), levels = custom_order_ca)
+  rownames(cm_sz_ca) <- factor(rownames(cm_sz_ca), levels = custom_order_ca)
+  colnames(cm_sz_ca) <- factor(colnames(cm_sz_ca), levels = custom_order_ca)
+  
+  rownames(cm_hc_th) <- factor(rownames(cm_hc_th), levels = custom_order_th)
+  colnames(cm_hc_th) <- factor(colnames(cm_hc_th), levels = custom_order_th)
+  rownames(cm_sz_th) <- factor(rownames(cm_sz_th), levels = custom_order_th)
+  colnames(cm_sz_th) <- factor(colnames(cm_sz_th), levels = custom_order_th)
+  
+  pdf('Figure_SXX_Correlation_Matrix_HC_Caudate.pdf',height=5,width=5)
+  gg1 <- ggcorrplot(cm_hc_ca, lab = TRUE, 
+                
+                    p.mat = p_matrix_cm_hc_ca,
+                    sig.level = 0.05,
+                    insig = "blank",
+                    lab_size = 4, title = 'Bilateral Caudate HC') + theme_minimal()
+  gg1 <- gg1 + theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank())
+  print(gg1)
+  dev.off()
+  
+  pdf('Figure_SXX_Correlation_Matrix_SZ_Caudate.pdf',height=5,width=5)  
+  gg1 <- ggcorrplot(cm_sz_ca, lab = TRUE, 
+                    
+                    p.mat = p_matrix_cm_sz_ca,
+                    sig.level = 0.05,
+                    insig = "blank",
+                    lab_size = 4, title = 'Bilateral Caudate SSD') + theme_minimal()
+  gg1 <- gg1 + theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank())
+  print(gg1)
+  dev.off()
+  pdf('Figure_SXX_Correlation_Matrix_HC_Thalamus.pdf',height=5,width=5) 
+  gg1 <- ggcorrplot(cm_hc_th, lab = TRUE, 
+                    
+                    p.mat = p_matrix_cm_hc_th,
+                    sig.level = 0.05,
+                    insig = "blank",
+                    lab_size = 4, title = 'Bilateral Thalamus HC') + theme_minimal()
+  gg1 <- gg1 + theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank())
+  print(gg1)
+  dev.off()
+  pdf('Figure_SXX_Correlation_Matrix_SZ_Thalamus.pdf',height=5,width=5) 
+  gg1 <- ggcorrplot(cm_sz_th, lab = TRUE, 
+                    
+                    p.mat = p_matrix_cm_sz_th,
+                    sig.level = 0.05,
+                    insig = "blank",
+                    lab_size = 4, title = 'Bilateral Thalamus SSD') + theme_minimal()
+  gg1 <- gg1 + theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank())
   print(gg1)
   dev.off()
   
