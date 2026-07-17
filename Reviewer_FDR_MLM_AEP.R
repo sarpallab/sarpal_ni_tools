@@ -32,7 +32,7 @@ group_r_nr = F
 clinical = F
 handedness_group = F
 Figure_2 = F
-Creatine_Check  = T
+Creatine_Check  = F
 Ref2mI = F
 NoRef = F # don't use this, need to apply a phantom correction
 Figure_3 = F
@@ -40,6 +40,7 @@ Figure_4 = F
 corr_heatmap = F
 corr_heatmap_raw = F
 group_FU_supp = F
+plot_complex_group_effects = T # Glu.Gln in L thalamus and
 #The manuscript states that FDR correction was performed by accounting for metabolites within each ROI. 
 # However, the statistical inference and biological interpretation are made across three ROIs. 
 # Please state exactly which p-values were included in each FDR correction family. 
@@ -47,9 +48,9 @@ group_FU_supp = F
 # includes all ROI-by-metabolite tests within each type of analysis, and report whether the main findings remain significant.
 
 # macbook
-# basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
+basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
 # macmini
-basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
+#basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
 setwd(basedir)
 
 #df <- read_csv('20260708-final-dataset-MRSI-2.csv')
@@ -304,7 +305,59 @@ if (reload_new_20260706 == T){
     mutate(region = paste0(hemi,' ', roi))
   dg <- dg %>% select(id,roi,hemi,timepoint,Cr, Cr.SD)
 
+  load('20260715-Checking_mI_negative.Rdata')
+  Ta <- T %>% select(id,timepoint,`mI/Cre`,roi.x,hemi)
+  rm(T)
   
+  Ta <- Ta %>% rename(roi = roi.x)
+  
+  df <- left_join(df, Ta,by=c('id','timepoint','roi','hemi'))
+  
+  dfohc <- read_csv('13MP20200207_LCMv2fixidx_Raw.csv')
+  dfohc <- dfohc %>% separate_wider_delim(cols = ld8,delim="_",names=c("id","dateNumeric"),cols_remove=FALSE)
+  dfohc$dateNumeric <- as.numeric(dfohc$dateNumeric)
+  dfohc <- dfohc %>% group_by(id,visitnum,label) %>% slice(1) %>% ungroup()
+  
+  hc_mike <- read_excel('13MP20200207_LCMv2fixidx_Mike.xlsx') %>% separate_wider_delim(cols = RECID, delim = "_", names = c('id','date'))
+  dfohc <- dfohc %>% filter(id %in% hc_mike$id)
+  dfohc <- dfohc %>% filter(age > 18) 
+  dfohc <- dfohc %>% filter(label %in% c('L Thalamus','R Thalamus','L Caudate','R Caudate'))
+  dfohc <- dfohc %>% separate(label, c('hemi','roi'), ' ', convert=TRUE) %>%
+    mutate(roi = ifelse(roi == 'caudate', 'Caudate', roi)) %>%
+    mutate(roi = ifelse(roi == 'thalamus', 'Thalamus', roi)) %>%
+    mutate(hemi = ifelse(hemi=='L', 'L', ifelse(hemi=='R', 'R', NA))) %>% # Fixed here
+    mutate(region = paste0(hemi,' ', roi))
+  
+  dfohc <- dfohc %>% group_by(id,roi,hemi) %>% mutate(nsess = 1:n()) %>%
+    ungroup()
+  
+  # 11725, 11810 use extra
+  dfohc <- dfohc %>% group_by(id) %>% arrange(nsess) %>% 
+    mutate(timepoint = case_when(nsess == 1 ~ 'BL',
+                                 nsess == 2 ~ 'FU',
+                                 nsess >= 3 ~ 'discard')
+    )
+  
+  dfohc <- dfohc %>% filter(timepoint != 'discard') %>% select(id,timepoint,mI.Cr,roi,hemi)
+  
+  
+  df <- left_join(df,dfohc,by=c('id','timepoint','roi','hemi'))
+  df <- df %>%
+    mutate(mIorig = case_when(!is.na(mI.Cr) ~ mI.Cr,
+                              !is.na(`mI/Cre`) ~ `mI/Cre`))
+  # df$mI[df$mI <= 0] = NA
+  # df$NAAG[df$NAAG <= 0] = NA
+  
+  df <- df %>% select(!Glc) # No Glc data in SSD
+  df0 <- df %>% group_by(group_level,id) %>% slice(1) %>% ungroup() %>% group_by(group_level) %>% summarize(mA = mean(age, na.rm=TRUE), sA = sd(age,na.rm=TRUE), N= n(), mDOI = mean(doi_m,na.rm=T), sDOI = sd(doi_m,na.rm=T)) %>% ungroup()
+  dfbprs <- df %>% filter(group_level == 'SZ') %>% group_by(id,timepoint) %>% slice(1) %>% ungroup() %>% group_by(timepoint) %>% summarize(mbprs = mean(POSSX,na.rm=TRUE), sbprs = sd(POSSX,na.rm=TRUE),mTbprs = mean(TOTAL,na.rm=TRUE), sTbprs = sd(TOTAL,na.rm=TRUE)) %>% ungroup()
+  
+  df2 <- df %>% group_by(group_level,id) %>% slice(1) %>% ungroup()
+  df1 <- df2 %>% select(group_level,sex) %>% mutate(sex = case_when(sex == 'M' ~ 1, sex == 'F' ~ 2), group_level = case_when(group_level == 'HC' ~ 1, group_level == 'SZ' ~ 2))
+  counts_table <- table(df1$group_level, df1$sex)
+  st <- chisq.test(counts_table)
+  
+  wt <- wilcox.test(df2$age[df2$group_level=='HC'],df2$age[df2$group_level=='SZ'])
 if (nan_out_Crgamadj==T){  
     
   hc_mike <- read_excel('13MP20200207_LCMv2fixidx_Mike.xlsx') %>% separate_wider_delim(cols = RECID, delim = "_", names = c('id','date'))
@@ -366,59 +419,6 @@ if (nan_out_Crgamadj==T){
   df$GPC.Cho[na_indices_Cr] = NA
 }
  
-  load('20260715-Checking_mI_negative.Rdata')
-  Ta <- T %>% select(id,timepoint,`mI/Cre`,roi.x,hemi)
-  rm(T)
-  
-  Ta <- Ta %>% rename(roi = roi.x)
-  
-  df <- left_join(df, Ta,by=c('id','timepoint','roi','hemi'))
-  
-  dfohc <- read_csv('13MP20200207_LCMv2fixidx_Raw.csv')
-  dfohc <- dfohc %>% separate_wider_delim(cols = ld8,delim="_",names=c("id","dateNumeric"),cols_remove=FALSE)
-  dfohc$dateNumeric <- as.numeric(dfohc$dateNumeric)
-  dfohc <- dfohc %>% group_by(id,visitnum,label) %>% slice(1) %>% ungroup()
-  
-  hc_mike <- read_excel('13MP20200207_LCMv2fixidx_Mike.xlsx') %>% separate_wider_delim(cols = RECID, delim = "_", names = c('id','date'))
-  dfohc <- dfohc %>% filter(id %in% hc_mike$id)
-  dfohc <- dfohc %>% filter(age > 18) 
-  dfohc <- dfohc %>% filter(label %in% c('L Thalamus','R Thalamus','L Caudate','R Caudate'))
-  dfohc <- dfohc %>% separate(label, c('hemi','roi'), ' ', convert=TRUE) %>%
-    mutate(roi = ifelse(roi == 'caudate', 'Caudate', roi)) %>%
-    mutate(roi = ifelse(roi == 'thalamus', 'Thalamus', roi)) %>%
-    mutate(hemi = ifelse(hemi=='L', 'L', ifelse(hemi=='R', 'R', NA))) %>% # Fixed here
-    mutate(region = paste0(hemi,' ', roi))
-  
-  dfohc <- dfohc %>% group_by(id,roi,hemi) %>% mutate(nsess = 1:n()) %>%
-    ungroup()
-  
-  # 11725, 11810 use extra
-  dfohc <- dfohc %>% group_by(id) %>% arrange(nsess) %>% 
-    mutate(timepoint = case_when(nsess == 1 ~ 'BL',
-                                  nsess == 2 ~ 'FU',
-                                  nsess >= 3 ~ 'discard')
-    )
-  
-  dfohc <- dfohc %>% filter(timepoint != 'discard') %>% select(id,timepoint,mI.Cr,roi,hemi)
-  
-  
-  df <- left_join(df,dfohc,by=c('id','timepoint','roi','hemi'))
-  df <- df %>%
-    mutate(mIorig = case_when(!is.na(mI.Cr) ~ mI.Cr,
-                              !is.na(`mI/Cre`) ~ `mI/Cre`))
-  # df$mI[df$mI <= 0] = NA
-  # df$NAAG[df$NAAG <= 0] = NA
-  
-  df <- df %>% select(!Glc) # No Glc data in SSD
-  df0 <- df %>% group_by(group_level,id) %>% slice(1) %>% ungroup() %>% group_by(group_level) %>% summarize(mA = mean(age, na.rm=TRUE), sA = sd(age,na.rm=TRUE), N= n(), mDOI = mean(doi_m,na.rm=T), sDOI = sd(doi_m,na.rm=T)) %>% ungroup()
-  dfbprs <- df %>% filter(group_level == 'SZ') %>% group_by(id,timepoint) %>% slice(1) %>% ungroup() %>% group_by(timepoint) %>% summarize(mbprs = mean(POSSX,na.rm=TRUE), sbprs = sd(POSSX,na.rm=TRUE),mTbprs = mean(TOTAL,na.rm=TRUE), sTbprs = sd(TOTAL,na.rm=TRUE)) %>% ungroup()
-  
-  df2 <- df %>% group_by(group_level,id) %>% slice(1) %>% ungroup()
-  df1 <- df2 %>% select(group_level,sex) %>% mutate(sex = case_when(sex == 'M' ~ 1, sex == 'F' ~ 2), group_level = case_when(group_level == 'HC' ~ 1, group_level == 'SZ' ~ 2))
-  counts_table <- table(df1$group_level, df1$sex)
-  st <- chisq.test(counts_table)
-  
-  wt <- wilcox.test(df2$age[df2$group_level=='HC'],df2$age[df2$group_level=='SZ'])
 }
 
 
@@ -2947,7 +2947,7 @@ if (Creatine_Check){
   
   df <- left_join(df,dg,by=c('id','timepoint','roi','hemi'))
   
-  df <- df %>% mutate(Cr_gamadj1 = case_when(Cr.SD > 20 | Cr < 0.01 | Cr > 5*sd(Cr,na.rm=T) ~ NA_real_, TRUE ~ Cr))
+  #df <- df %>% mutate(Cr_gamadj1 = case_when(Cr.SD > 20 | Cr < 0.01 | Cr > 5*sd(Cr,na.rm=T) ~ NA_real_, TRUE ~ Cr))
   df$Cr_gamadj1 <- scale(Winsorize(df$Cr_gamadj, val = quantile(df$Cr_gamadj,probs = c(0.05,0.95),na.rm=TRUE)))
   
   df <- df %>% group_by(id,roi,hemi,timepoint) %>% slice(1) %>% ungroup()
@@ -4656,5 +4656,151 @@ if (group_FU_supp == T){
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
+  
+}
+
+if (plot_complex_group_effects==T){
+  
+  library(ggdist)
+  
+  secondary_mets <- c('GPC','NAAG','GPC.Cho','mI','NAA')
+  primary_mets <- c('Glu','GABA','Glu.Gln')
+  
+  dodge_width = 0.8
+  df1 <- df %>% select(id,group_level,GMrat,GPC,mIorig,Glu,GPC.Cho,GABA,NAA,mI,Gln,NAAG,Glu.Gln,roi,hemi,timepoint)
+  dfL <- df1 %>% filter(timepoint == 'BL') %>% pivot_longer(cols = c('GMrat','GPC','Glu','GPC.Cho','GABA','NAA','mI','Gln','NAAG','Glu.Gln','mIorig'))
+  dfL <- dfL %>% filter(name != 'Gln' & name != 'GMrat')
+  dfL$Group <- dfL$group_level
+  
+  # examine emmeans
+  MThmI <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), mI ~ group_level*hemi + sex + scale(GMrat) + (1|id))
+  emm <- emmeans(MThmI, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
+  # Convert to data frame
+  emm_df <- as.data.frame(emm)
+  pairs(emm,adjust = "fdr")
+  
+  # 1. Isolate the mI metabolite
+  df_mI <- dfL %>% 
+    filter(roi == 'Thalamus' & hemi == 'R' & name == 'mI' & timepoint == 'BL')
+  
+  # 2. Define the dodge width so the violin, boxplot, and points align
+  dodge_width <- 0.8
+  
+  # 3. Build the plot
+  pdf('Figure_2D_R_Thalamus_mI_Raincloud.pdf', height = 4, width = 5)
+  
+  gg1 <- ggplot(df_mI, aes(x = name, y = value, fill = Group, color = Group)) +
+    
+    # A. The "Impossible Zone" Shading
+    # Uses -Inf to bound the bottom of the plot, up to the 0 line
+    annotate("rect", xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = 0, 
+             fill = "gray80", alpha = 0.5, color = NA) +
+    
+    # B. The Zero Boundary Line
+    geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
+    
+    # C. Raincloud: The Half-Violin (ggdist)
+    ggdist::stat_halfeye(
+      adjust = 0.5,
+      width = 0.5,
+      .width = 0,
+      justification = -0.2, # Pushes the violin slightly to the right of the center
+      point_colour = NA,    # Turns off the default summary point
+      position = position_dodge(width = dodge_width),
+      alpha = 0.6
+    ) +
+    
+    # D. Raincloud: The Boxplot
+    geom_boxplot(
+      width = 0.15,
+      outlier.shape = NA,
+      color = "black",
+      notch = TRUE,
+      fatten = 1,
+      position = position_dodge(width = dodge_width),
+      show.legend = FALSE # Prevents the boxplot from messing up the legend
+    ) +
+    
+    # E. Raincloud: The Jittered Points
+    geom_point(
+      position = position_jitterdodge(jitter.width = 0.1, dodge.width = dodge_width),
+      size = 1.2,
+      alpha = 0.8
+    ) +
+    
+    # F. Labels (Notice ylim is removed)
+    xlab('Metabolite') + 
+    ylab('Adjusted Concentration (A.U.)') +
+    
+    # G. Significance Bracket
+    # Since 'name' is a single categorical variable on the x-axis, its center is at x=1.
+    # The dodge_width shifts the groups relative to 1.
+    geom_signif(
+      color = "black",
+      textsize = 4  ,
+      linewidth = 1,
+      xmin = 1 - (dodge_width / 4), 
+      xmax = 1 + (dodge_width / 4), 
+      y_position = max(df_mI$value, na.rm = TRUE) + 0.2, # Dynamically places it above the highest point
+      annotation = "***", 
+      vjust = -0.5,
+      tip_length = 0.03
+    ) + ylim(c(min(df_mI$value,na.rm=TRUE), 2.5)) +
+    
+    # Clean theme to make the shading pop
+    theme_classic()
+  
+  print(gg1)
+  dev.off()
+  
+  
+  dfLmi <- dfL %>% filter((name == 'mIorig' | name == 'mI') & timepoint == 'BL' & hemi == 'R' & roi == 'Thalamus') %>% mutate(DataType = case_when(name == 'mIorig' ~ 'LCModel output',
+                                             name == 'mI' ~ 'GAM transformed output'))
+  
+  dfLmi$DataType <- relevel(as.factor(dfLmi$DataType),ref = 'LCModel output')
+  dfLmi <- dfLmi %>% mutate(x_base = case_when(DataType == 'LCModel output' ~ 0,
+                                               DataType == 'GAM transformed output' ~ 1))
+  set.seed(123)
+  subject_offsets <- data.frame(
+    id = unique(dfLmi$id),
+    jitter_val = runif(length(unique(dfLmi$id)), min = -0.15, max = 0.15)
+  )
+  
+  dfLmi <- dfLmi %>% left_join(subject_offsets, by = 'id') %>% mutate(x_plotted = x_base + jitter_val)
+  
+  pdf('Figure_2E_R_Thalamus_mI_Transformation_Locked.pdf', height = 4, width = 6)
+  
+  gg2_locked <- ggplot(dfLmi, aes(x = x_plotted, y = value, color = Group, group = id)) +
+    
+    # A. The "Impossible Zone" Shading
+    annotate("rect", xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = 0, 
+             fill = "gray80", alpha = 0.5, color = NA) +
+    
+    # B. The Zero Boundary Line
+    geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
+    
+    # C. Lines and Points (No position arguments needed now!)
+    geom_line(alpha = 0.3) +
+    geom_point(size = 1.8, alpha = 0.6) +
+    
+    # D. Re-label the numeric X-axis back to categories
+    scale_x_continuous(
+      breaks = c(1, 0), 
+      labels = c("GAM Adjusted", "LC Model Output"),
+      expand = c(0.1, 0.1)
+    ) +
+    
+    theme_classic() +
+    labs(
+      title = "mI Value Transformation (Pre-calculated Jitter)",
+      x = "Model State",
+      y = "mI Concentration (A.U.)",
+      subtitle = "Points and lines are hard-coded to perfectly match."
+    ) +
+    theme(legend.position = "right")
+  
+  print(gg2_locked)
+  dev.off()
+  
   
 }
