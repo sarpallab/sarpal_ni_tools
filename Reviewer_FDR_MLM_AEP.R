@@ -31,7 +31,7 @@ group_r_nr = F
 # will reload just Sarpal / CZ data
 clinical = F
 handedness_group = F
-Figure_2 = F
+Figure_2 = T
 Creatine_Check  = F
 Ref2mI = F
 NoRef = F # don't use this, need to apply a phantom correction
@@ -40,7 +40,7 @@ Figure_4 = F
 corr_heatmap = F
 corr_heatmap_raw = F
 group_FU_supp = F
-plot_complex_group_effects = T # Glu.Gln in L thalamus and
+plot_complex_group_effects = F # Glu.Gln in L thalamus and
 #The manuscript states that FDR correction was performed by accounting for metabolites within each ROI. 
 # However, the statistical inference and biological interpretation are made across three ROIs. 
 # Please state exactly which p-values were included in each FDR correction family. 
@@ -48,9 +48,9 @@ plot_complex_group_effects = T # Glu.Gln in L thalamus and
 # includes all ROI-by-metabolite tests within each type of analysis, and report whether the main findings remain significant.
 
 # macbook
-basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
+#basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
 # macmini
-#basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
+basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
 setwd(basedir)
 
 #df <- read_csv('20260708-final-dataset-MRSI-2.csv')
@@ -2408,10 +2408,11 @@ if (Figure_2){
   
   
   dodge_width = 0.8
-  df <- df %>% select(id,group_level,GMrat,GPC,Glu,GPC.Cho,GABA,NAA,mI,Gln,NAAG,Glu.Gln,roi,hemi,timepoint)
-  dfL <- df %>% filter(timepoint == 'BL') %>% pivot_longer(cols = c('GMrat','GPC','Glu','GPC.Cho','GABA','NAA','mI','Gln','NAAG','Glu.Gln'))
+  df1 <- df %>% select(id,group_level,GMrat,GPC,Glu,GPC.Cho,GABA,NAA,mI,Gln,NAAG,Glu.Gln,roi,hemi,timepoint)
+  dfL <- df1 %>% filter(timepoint == 'BL') %>% pivot_longer(cols = c('GMrat','GPC','Glu','GPC.Cho','GABA','NAA','mI','Gln','NAAG','Glu.Gln'))
   dfL <- dfL %>% filter(name != 'Gln' & name != 'GMrat')
   dfL$Group <- dfL$group_level
+  dfL <- dfL %>% filter(name != 'mIorig')
   
   ####### Left Caudate Primary Metabolites ########
   pdf('Figure_2A_L_Caudate_Primary.pdf',height=4, width = 5)
@@ -2521,7 +2522,7 @@ if (Figure_2){
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
     geom_boxplot(aes(group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
-    ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
+    ylim(c(0,3.0)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
       textsize = 6,          # Optional: Adjusts text size of the labels
@@ -2553,8 +2554,8 @@ if (Figure_2){
       linewidth = 1,       # Optional: Adjusts the thickness of the bracket lines
       xmin = 3 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
       xmax = 3 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
-      y_position = 2.5,               # Height of the bracket
-      annotation = "N.S.",
+      y_position = 2.85,               # Height of the bracket
+      annotation = "**",
       vjust = -0.5,
       tip_length = 0.03
     ) + theme_minimal() +
@@ -2607,7 +2608,7 @@ if (Figure_2){
       xmin = 3 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
       xmax = 3 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
       y_position = 2.5,               # Height of the bracket
-      annotation = "**",
+      annotation = "N.S.",
       tip_length = 0.03
     ) + theme_minimal() +
     theme(axis.text.y = element_text(size = 14),
@@ -2814,11 +2815,11 @@ if (Figure_2){
   
   ####### Right Thalamus Secondary Metabolites ########
   pdf('Figure_2H_R_Thalamus_Secondary.pdf',height=4, width = 7)
-  gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% primary_mets) & name != 'GPC' & hemi == 'R'), aes(x = name, y = value, color = Group)) + 
+  gg1 <- ggplot(dfL %>% filter(roi == 'Thalamus' & !(name %in% primary_mets) & name != 'GPC' & name != 'mIorig' & hemi == 'R'), aes(x = name, y = value, color = Group)) + 
     geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.8),
                 size = 0.8, alpha = 0.8) +
     geom_boxplot(aes(group = interaction(name,Group)),color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
-    ylim(c(0,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
+    ylim(c(-1.25,2.75)) + xlab('metabolite') + ylab('concentration (A.U.)') +
     geom_signif(
       color = "black",
       textsize = 4,          # Optional: Adjusts text size of the labels
@@ -2839,7 +2840,7 @@ if (Figure_2){
       xmin = 2 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
       xmax = 2 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
       y_position = 2.5,               # Height of the bracket
-      annotation = "N.S.",
+      annotation = "***",
       vjust = -0.5,
       tip_length = 0.03
     ) +
