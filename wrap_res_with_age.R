@@ -4,12 +4,16 @@
 
 library(tidyverse)
 
-basedir <- '/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper/'
+#basedir <- '/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper/'
 #basedir <- '/ix1/ginger/dsarpal/lab/reorg/projects/20260626-MRSI-Complete'
+# mac mini
+basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
+
 setwd(basedir)
 
-source('/Users/andrew/Documents/GitHub/MRSI_gaba_glu/res_with_age.R')
+#source('/Users/andrew/Documents/GitHub/MRSI_gaba_glu/res_with_age.R')
 #source('res_with_age.R')
+source('/Users/andypapale/Documents/GitHub/MRSI_gaba_glu/res_with_age.R')
 
 df <- read_csv('13MP20200207_LCMv2fixidx_Raw.csv')
 df <- df %>% separate_wider_delim(cols = ld8,delim="_",names=c("id","dateNumeric"),cols_remove=FALSE)
@@ -42,6 +46,8 @@ df <- df %>% mutate(NAA.Cr = case_when(NAA.SD > 20 | NAA.Cr < 0.01 | NAA.Cr > 5*
 df <- df %>% mutate(NAAG.Cr = case_when(NAAG.SD > 20 | NAAG.Cr < 0.01 | NAAG.Cr > 5*sd(Cr,na.rm=T) ~ NA_real_, TRUE ~ NAAG.Cr))
 df <- df %>% mutate(Tau.Cr = case_when(Tau.SD > 20 | Tau.Cr < 0.01 | Tau.Cr > 5*sd(Tau.Cr,na.rm=T) ~ NA_real_, TRUE ~ Tau.Cr))
 
+# 2026-07-17 AndyP, this also did not prevent negative mI predictions in adjust_sarpal.R
+#df$mI.Cr <- log(df$mI.Cr)
 
 for (iR in 1:length(roi_list)){
   met <- NULL
@@ -75,5 +81,5 @@ for (iR in 1:length(roi_list)){
 
 met_out1 <- inner_join(df,met_out,by=c('id','visitnum','label'))
 
-save(M,file='20260706-gammodels.Rdata')
-save(met_out1, file='20260706-gamadj-HC.Rdata')
+save(M,file='20260717-gammodels.Rdata')
+save(met_out1, file='20260717-gamadj-HC.Rdata')

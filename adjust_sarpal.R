@@ -11,7 +11,11 @@ library(broom)
 library(lubridate)
 
 #basedir <- '/ix1/ginger/dsarpal/lab/reorg/projects/20260626-MRSI-Complete'
-basedir <- '/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
+# macbook
+#basedir <- '/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
+# mac mini
+basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
+
 setwd(basedir)
 
 # Load models
@@ -36,6 +40,9 @@ szmet_new <- szmet_orig %>%
   mutate(dateNumeric = as.numeric(as.POSIXct(scan_date, format="%Y-%m-%d")),
          hemi = ifelse(hemi=='left', 'L', ifelse(hemi=='right', 'R', NA))) %>%
   mutate(region = paste0(hemi,' ', roi))
+
+# this did not fix the negative mI values problem 2026-07-17 AndyP
+#szmet_new$scan_date[szmet_new$scan_date > "2022-01-01 UTC"] <- "2022-01-01 UTC"
 
 # Grab model based on ROI & metabolite
 gam.model <- gam_models$`model_R Thalamus_mI.Cr`
@@ -129,7 +136,7 @@ for (thisroi in roiset) {
   }
 }
 
-save(sz_met_out, file='20260715-SSD-gamadj.Rdata')
+save(sz_met_out, file='20260717-SSD-gamadj.Rdata')
 
 # adj.df.wide <- merge(
 #   adj.df %>% select(-met.adj) %>% pivot_wider(names_from = metname, values_from = met),
