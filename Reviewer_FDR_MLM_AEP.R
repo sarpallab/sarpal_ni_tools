@@ -23,9 +23,9 @@ reload_new = F # 2026-07-02 post redoing GM
 # old, part of redoing GM for revision using uniform method
 reload = F
 reload_check_GM = F
-longitudinal = T
+longitudinal = F
 group = F
-hilowdoi = F
+hilowdoi = T
 eibalance = F
 group_r_nr = F
 # will reload just Sarpal / CZ data
@@ -48,9 +48,9 @@ plot_complex_group_effects = F # Glu.Gln in L thalamus and
 # includes all ROI-by-metabolite tests within each type of analysis, and report whether the main findings remain significant.
 
 # macbook
-#basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
+basedir <- ('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper')
 # macmini
-basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
+#basedir <- '/Users/andypapale/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
 setwd(basedir)
 
 #df <- read_csv('20260708-final-dataset-MRSI-2.csv')
@@ -63,10 +63,26 @@ if (reload_new_20260706 == T){
   hc <- hc %>% filter(id %in% hc_mike$id)
   
   
+  # 2026-07-19 remove mI R Thalamus, add new model from 2026-07-19
+  load('20260719-gamadj-HC.Rdata')
+  hcmILT <- met_out1
+  hcmILT <- hcmILT %>% dplyr::select(id,visitnum,label,mI.Cr_gamadj) %>% rename(mI.Cr_gamadj_new = mI.Cr_gamadj)
+  hcmILT <- hcmILT %>% filter(id %in% hc_mike$id)
+  hc <- left_join(hc,hcmILT,by=c('id','visitnum','label'))
+  hc <- hc %>% mutate(mI.Cr_gamadj = case_when(label == 'R Thalamus' ~ mI.Cr_gamadj_new,
+                                               label != 'R Thalamus' ~ mI.Cr_gamadj)) %>% select(!mI.Cr_gamadj_new)
+  
   gc()
   load('20260706-SSD-gamadj.Rdata') # loads sz_met_out
   ssd <- sz_met_out %>% group_by(RECID,timepoint,region,metabolite) %>% slice(1) %>% ungroup()
   rm(sz_met_out)
+  
+  # 2026-07-19 remove mI R Thalamus, add new model from 2026-07-19
+  ssd <- ssd %>% filter(!(metabolite == 'mI.Cr_gamadj' & region == 'R Thalamus'))
+  load('20260719-SSD-gamadj.Rdata')
+  ssdmILT <- sz_met_out %>% select(!orig_value)  %>% group_by(RECID,timepoint,region,metabolite) %>% slice(1) %>% ungroup()
+  ssdmILT <- ssdmILT %>% filter(metabolite == 'mI.Cr_gamadj' & region == 'R Thalamus')
+  ssd <- rbind(ssd,ssdmILT)
   
   hc <- hc %>% select(id,visitnum,sex,age,label,GMrat,all_of(contains('_gamadj')))
   hc <- hc %>% rename(timepoint = visitnum)
@@ -1188,7 +1204,7 @@ if (hilowdoi==T){
   effsz <- eff_size(emm, sigma = sigma(M), edf = df.residual(M))
   effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   
-  Th <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), NAAG ~ doigr*hemi + sex + scale(GMrat) + (1|id))
+  Th <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), mI ~ doigr*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(Th, ~ doigr | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)

@@ -11,6 +11,7 @@ library(broom)
 library(lubridate)
 
 #basedir <- '/ix1/ginger/dsarpal/lab/reorg/projects/20260626-MRSI-Complete'
+#basedir <- '/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
 # macbook
 basedir <- '/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Papers/Working_Drafts/Mike_MRSI_Paper'
 # mac mini
@@ -19,10 +20,10 @@ basedir <- '/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/S
 setwd(basedir)
 
 # Load models
-load('20260719-gammodels.Rdata')
+load('20260706-gammodels.Rdata')
 gam_models <- M
 
-load('20260719-gamadj-HC.Rdata')
+load('20260706-gamadj-HC.Rdata')
 
 
 # Load SZ MRSI data
@@ -37,7 +38,7 @@ szmet_new <- szmet_orig %>%
   separate(roi, c('hemi','roi'), ' ', convert=TRUE) %>%
   mutate(roi = ifelse(roi == 'caudate', 'Caudate', roi)) %>%
   mutate(roi = ifelse(roi == 'thalamus', 'Thalamus', roi)) %>%
-  mutate(dateNumeric = as.numeric(ymd(as.POSIXct(scan_date, format="%Y-%m-%d"))),
+  mutate(dateNumeric = as.numeric(as.POSIXct(scan_date, format="%Y-%m-%d")),
          hemi = ifelse(hemi=='left', 'L', ifelse(hemi=='right', 'R', NA))) %>%
   mutate(region = paste0(hemi,' ', roi))
 
@@ -48,7 +49,7 @@ szmet_new <- szmet_orig %>%
 gam.model <- gam_models$`model_R Thalamus_mI.Cr`
 #metdata <- gam_models %>% filter(met == 'GABA', biregion == 'Thalamus') %>% pull(metdata)
 metdata <- met_out1 %>% filter(label == 'R Thalamus')
-metdata <- metdata %>% mutate(dateNumeric1 = as.Date(dateNumeric))
+metdata <- metdata %>% mutate(dateNumeric1 = ymd(dateNumeric))
 meandate <- mean(metdata$dateNumeric1,na.rm=TRUE)
 # Extract necessary data from sz data frame
 this.met <- szmet_new %>%
@@ -58,13 +59,15 @@ this.met$mI.Cre <- as.numeric(this.met$mI.Cre)
 
 
 this.met <- this.met %>% rename(mI.Cr = mI.Cre) %>% 
-  mutate(mI.Cr = replace_na(mI.Cr,mean(mI.Cr,na.rm=T)))
+  mutate(mI.Cr = replace_na(mI.Cr,mean(mI.Cr,na.rm=T))) %>%
+  mutate(dateNumeric = as.integer(format(as_datetime(dateNumeric, tz = "UTC"), "%Y%m%d"))) 
 
 ## first, get residual (difference from expectation given date, GMrat, age)
 yhat <- unname(predict(gam.model,this.met))
 e <- this.met$mI.Cr - yhat
 
-this.met <- this.met %>% mutate(dateNumeric = as.numeric(meandate))
+this.met <- this.met %>% mutate(dateNumeric = meandate)
+this.met <- this.met %>% mutate(dateNumeric = as.numeric(gsub("-","",dateNumeric)))
 ## now, predict @ mean date (but with real age & GMrat) and add back in residual
 this.met$mI.Cr.adj <- unname(predict(gam.model, this.met)) + e
 
@@ -97,7 +100,7 @@ for (thisroi in roiset) {
     modelstr <- paste0('model_',thisroi,'_',mod_mets[meti],'')
     gam.model <- gam_models[[modelstr]]
     metdata <- met_out1 %>% filter(label == thisroi)
-    metdata <- metdata %>% mutate(dateNumeric1 = as.Date(dateNumeric))
+    metdata <- metdata %>% mutate(dateNumeric1 = ymd(dateNumeric))
     meandate <- mean(metdata$dateNumeric1,na.rm=TRUE)
     # Extract necessary data from sz data frame
     this.met <- szmet_new %>%
@@ -108,9 +111,8 @@ for (thisroi in roiset) {
     new_col_name <- this_mod_met
     
     this.met <- this.met %>% 
-      mutate(!!new_col_name := replace_na(.data[[this_sz_met]],mean(.data[[this_sz_met]],na.rm=TRUE)))
-    
-    this.met$orig_value <- this.met[[this_mod_met]]
+      mutate(!!new_col_name := replace_na(.data[[this_sz_met]],mean(.data[[this_sz_met]],na.rm=TRUE))) %>%
+      mutate(dateNumeric = as.integer(format(as_datetime(dateNumeric, tz = "UTC"), "%Y%m%d"))) 
     
     ## first, get residual (difference from expectation given date, GMrat, age)
     
@@ -118,10 +120,15 @@ for (thisroi in roiset) {
       yhat <- unname(predict(gam.model,this.met))
       e <- this.met[[this_mod_met]] - yhat
       
-      this.met <- this.met %>% mutate(dateNumeric = as.numeric(meandate))
+      this.met$orig_value <- this.met[[this_mod_met]]
+      
+      this.met <- this.met %>% mutate(dateNumeric = meandate)
+      this.met <- this.met %>% mutate(dateNumeric = as.numeric(gsub("-","",dateNumeric)))
       ## now, predict @ mean date (but with real age & GMrat) and add back in residual
       temp <- unname(predict(gam.model, this.met)) + e
       this.met <- this.met %>% mutate(value = temp, metabolite = paste0(this_mod_met,'_gamadj')) %>% select(!all_of(this_sz_met)) %>% select(!all_of(this_mod_met))
+      
+      #browser()
       
       pdf(paste0('adjust_sarpal_',this_mod_met,'_',thisroi,'.pdf'),height = 6, width = 5)
       gg1 <- ggplot(data = this.met, aes(x = orig_value, y = value, shape=as.factor(timepoint))) +
@@ -131,7 +138,7 @@ for (thisroi in roiset) {
         theme(legend.position=c(.1, .8)) +
         theme_bw() + xlab('adjusted_value_20260706')
       print(gg1)
-      dev.off()      
+      dev.off()
       
       if (length(sz_met_out)==0){
         sz_met_out <- this.met
@@ -145,7 +152,7 @@ for (thisroi in roiset) {
   }
 }
 
-save(sz_met_out, file='20260719-SSD-gamadj.Rdata')
+#save(sz_met_out, file='20260715-SSD-gamadj.Rdata')
 
 # adj.df.wide <- merge(
 #   adj.df %>% select(-met.adj) %>% pivot_wider(names_from = metname, values_from = met),
