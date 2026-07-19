@@ -23,7 +23,7 @@ reload_new = F # 2026-07-02 post redoing GM
 # old, part of redoing GM for revision using uniform method
 reload = F
 reload_check_GM = F
-longitudinal = F
+longitudinal = T
 group = F
 hilowdoi = F
 eibalance = F
@@ -31,7 +31,7 @@ group_r_nr = F
 # will reload just Sarpal / CZ data
 clinical = F
 handedness_group = F
-Figure_2 = T
+Figure_2 = F
 Creatine_Check  = F
 Ref2mI = F
 NoRef = F # don't use this, need to apply a phantom correction
@@ -1123,13 +1123,13 @@ if (longitudinal==T){
   effsz <- eff_size(emm, sigma = sigma(Th), edf = df.residual(Th))
   effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   
-  M <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), Glu.Gln ~ condition*hemi + sex + scale(GMrat) + (1|id))
+  M <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate'), NAA ~ condition*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(M, ~ condition | hemi, data = df %>% filter(roi == 'Caudate'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
   
-  M <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAAG ~ condition*hemi + sex + scale(GMrat) + (1|id))
+  M <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), NAA ~ condition*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(M, ~ condition | hemi, data = df %>% filter(roi == 'Thalamus'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
