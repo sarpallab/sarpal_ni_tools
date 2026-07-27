@@ -25,15 +25,15 @@ reload = F
 reload_check_GM = F
 longitudinal = F
 group = F
-hilowdoi = T
+hilowdoi = F
 eibalance = F
 group_r_nr = F
 # will reload just Sarpal / CZ data
 clinical = F
 handedness_group = F
-Figure_2 = F
+Figure_2 = T
 Creatine_Check  = F
-Ref2mI = F
+Ref2mI = T
 NoRef = F # don't use this, need to apply a phantom correction
 Figure_3 = F
 Figure_4 = F
@@ -2856,7 +2856,7 @@ if (Figure_2){
       xmin = 2 - (dodge_width / 4),  # Centers on Site B's left bar (approx 1.8)
       xmax = 2 + (dodge_width / 4),  # Centers on Site B's right bar (approx 2.2)
       y_position = 2.5,               # Height of the bracket
-      annotation = "***",
+      annotation = "N.S.",
       vjust = -0.5,
       tip_length = 0.03
     ) +
@@ -3147,7 +3147,7 @@ if (Creatine_Check){
   
   pdf('Figure_S2A_Thalamus_GluGln.pdf',height=5,width=6)
   emm_df$Group <- emm_df$group_level
-  pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("*"), y.position = 2.0)
+  pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("N.S."), y.position = 2.0)
   gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
     geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
     theme_minimal() + xlab('') + ylab('Thalamus Glu.Gln') + ylim(c(1.33,2.25)) +
@@ -3343,7 +3343,7 @@ if (Creatine_Check){
   
   pdf('Figure_S2A_Thalamus_mI.pdf',height=5,width=6) 
   emm_df$Group <- emm_df$group_level
-  pvals <- data.frame(hemi = "R", group1 = c("HC"), group2 = c("SZ"), p.signif = c("*"), y.position = 1.25)
+  #pvals <- data.frame(hemi = "R", group1 = c("HC"), group2 = c("SZ"), p.signif = c("*"), y.position = 1.25)
   gg1 <- ggplot(emm_df, aes(x =Group, y= emmean, ymin = lower.CL, ymax = upper.CL)) + 
     geom_errorbar(width = 0.5) + facet_grid(~hemi) + geom_point(size=5) +
     theme_minimal() + xlab('') + ylab('Thalamus mI') + ylim(c(0,1.5)) +
@@ -3353,8 +3353,8 @@ if (Creatine_Check){
           legend.title = element_text(size = 16),
           axis.title.x = element_text(size = 16),
           axis.title.y = element_text(size = 16),
-          strip.text.x = element_text(size = 16)) + 
-    stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
+          strip.text.x = element_text(size = 16)) #+ 
+   # stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
   print(gg1)
   dev.off()
   
