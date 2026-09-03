@@ -4,6 +4,9 @@
 # 2026-06-17 AndyP
 # added contralateral thalamus
 
+# 2026-09-03 AndyP
+# added summary table for Richard Maddock MD (UCDavis) for meta analysis
+
 library(tidyverse)
 library(readxl)
 library(lmerTest)
@@ -33,7 +36,7 @@ clinical = F
 handedness_group = F
 Figure_2 = T
 Creatine_Check  = F
-Ref2mI = T
+Ref2mI = F
 NoRef = F # don't use this, need to apply a phantom correction
 Figure_3 = F
 Figure_4 = F
@@ -41,6 +44,7 @@ corr_heatmap = F
 corr_heatmap_raw = F
 group_FU_supp = F
 plot_complex_group_effects = F # Glu.Gln in L thalamus and
+pitt4ucdavis <- T
 #The manuscript states that FDR correction was performed by accounting for metabolites within each ROI. 
 # However, the statistical inference and biological interpretation are made across three ROIs. 
 # Please state exactly which p-values were included in each FDR correction family. 
@@ -4820,4 +4824,20 @@ if (plot_complex_group_effects==T){
   dev.off()
   
   
+}
+
+if (pitt4ucdavis == TRUE){
+  pitt_4_ucdavis <- df %>% 
+    filter(group == 'HC' & timepoint == 'BL') %>% 
+    group_by(hemi,region,sex) %>% 
+    summarize(N = n(), mGPC.Cho = mean(GPC.Cho,na.rm=TRUE), 
+              sdGPC.Cho = sd(GPC.Cho,na.rm=TRUE), mGABA = mean(GABA,na.rm=TRUE), 
+              sdGABA = sd(GABA,na.rm=TRUE), mGlu = mean(Glu,na.rm=TRUE), 
+              sdGlu = sd(Glu,na.rm=TRUE), mNAA = mean(NAA,na.rm=TRUE), 
+              sdNAA = sd(NAA,na.rm=TRUE), mmI = mean(mI,na.rm=TRUE), 
+              sdmI = sd(mI,na.rm=TRUE), mGlx = mean(Glu.Gln,na.rm=TRUE), 
+              sdGlx = sd(Glu.Gln, na.rm=TRUE)) %>% 
+    ungroup()
+  
+  save(pitt_4_ucdavis, file = '2026-09-03-MRSI-PittLunaLab-HC-Baseline-summary-statistics.csv')
 }
