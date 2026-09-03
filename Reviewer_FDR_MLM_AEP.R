@@ -4839,5 +4839,5 @@ if (pitt4ucdavis == TRUE){
               sdGlx = sd(Glu.Gln, na.rm=TRUE)) %>% 
     ungroup()
   
-  save(pitt_4_ucdavis, file = '2026-09-03-MRSI-PittLunaLab-HC-Baseline-summary-statistics.csv')
+  write.csv(pitt_4_ucdavis, file = '2026-09-03-MRSI-PittLunaLab-HC-Baseline-summary-statistics.csv')
 }
