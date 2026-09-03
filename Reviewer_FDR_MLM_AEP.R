@@ -27,14 +27,14 @@ reload_new = F # 2026-07-02 post redoing GM
 reload = F
 reload_check_GM = F
 longitudinal = F
-group = F
+group = T
 hilowdoi = F
 eibalance = F
 group_r_nr = F
 # will reload just Sarpal / CZ data
 clinical = F
 handedness_group = F
-Figure_2 = T
+Figure_2 = F
 Creatine_Check  = F
 Ref2mI = F
 NoRef = F # don't use this, need to apply a phantom correction
@@ -42,9 +42,9 @@ Figure_3 = F
 Figure_4 = F
 corr_heatmap = F
 corr_heatmap_raw = F
-group_FU_supp = F
+group_FU_supp = T
 plot_complex_group_effects = F # Glu.Gln in L thalamus and
-pitt4ucdavis <- T
+pitt4ucdavis <- F
 #The manuscript states that FDR correction was performed by accounting for metabolites within each ROI. 
 # However, the statistical inference and biological interpretation are made across three ROIs. 
 # Please state exactly which p-values were included in each FDR correction family. 
@@ -60,8 +60,10 @@ setwd(basedir)
 #df <- read_csv('20260708-final-dataset-MRSI-2.csv')
 
 if (reload_new_20260706 == T){
+  # These are the gam-adjusted HC outputs from Luna Lab for L/R Thalamus and L/R Caudate.
   load('20260706-gamadj-HC.Rdata') # loads met_out1
   hc <- met_out1
+  # This loads the CRLB values, saved as metabolite.SD.  Values are stored as 999 if they need to be NaN'ed out (do not pass CRLB bound)
   hc_mike <- read_excel('13MP20200207_LCMv2fixidx_Mike.xlsx') %>% separate_wider_delim(cols = RECID, delim = "_", names = c('id','date'))
   rm(met_out1)
   hc <- hc %>% filter(id %in% hc_mike$id)
@@ -76,6 +78,22 @@ if (reload_new_20260706 == T){
   hc <- hc %>% mutate(mI.Cr_gamadj = case_when(label == 'R Thalamus' ~ mI.Cr_gamadj_new,
                                                label != 'R Thalamus' ~ mI.Cr_gamadj)) %>% select(!mI.Cr_gamadj_new)
   
+  
+  
+  # 2026-09-03 AndyP
+  hc$NAAG.Cr_gamadj[hc$NAAG.SD > 20] <- NA
+  hc$NAA.Cr_gamadj[hc$NAA.SD > 20] <- NA
+  hc$Glu.Gln.Cr_gamadj[hc$Glu.Gln.Cr_gamadj > 20] <- NA
+  hc$NAA.NAAG.Cr_gamadj[hc$NAA.NAAG.SD > 20] <- NA
+  hc$GPC.Cho.Cr_gamadj[hc$GPC.Cho.SD > 20] <- NA
+  hc$mI.Cr_gamadj[hc$mI.SD > 20] <- NA
+  hc$GSH.Cr_gamadj[hc$GSH.SD > 20] <- NA
+  hc$GPC.Cr_gamadj[hc$GPC.SD > 20] <- NA
+  hc$Glu.Cr_gamadj[hc$Glu.SD > 20] <- NA
+  hc$Gln.Cr_gamadj[hc$Gln.SD > 20] <- NA
+  hc$GABA.Cr_gamadj[hc$GABA.SD > 20] <- NA
+  hc$Cho.Cr_gamadj[hc$Cho.SD > 20] <- NA
+  
   gc()
   load('20260706-SSD-gamadj.Rdata') # loads sz_met_out
   ssd <- sz_met_out %>% group_by(RECID,timepoint,region,metabolite) %>% slice(1) %>% ungroup()
@@ -88,7 +106,7 @@ if (reload_new_20260706 == T){
   ssdmILT <- ssdmILT %>% filter(metabolite == 'mI.Cr_gamadj' & region == 'R Thalamus')
   ssd <- rbind(ssd,ssdmILT)
   
-  hc <- hc %>% select(id,visitnum,sex,age,label,GMrat,all_of(contains('_gamadj')))
+  hc <- hc %>% select(id,visitnum,sex,age,label,GMrat,NAAG.SD,all_of(contains('_gamadj')))
   hc <- hc %>% rename(timepoint = visitnum)
   
   ssd <- ssd %>% pivot_wider(id_cols = c(RECID,timepoint,region,age), names_from = metabolite, values_from = value)
@@ -123,6 +141,10 @@ if (reload_new_20260706 == T){
   ssd <- ssd %>% mutate(group_level = 'SZ')
   hc <- hc %>% mutate(group_level = 'HC')
   
+  # 2026-09-03 AndyP
+  # Testing SD/CRLB values were removed from hc dataset
+  ssd <- ssd %>% mutate(NAAG.SD = NA)
+  
   common_col <- intersect(colnames(hc),colnames(ssd))
   hc <- hc %>% select(common_col)
   ssd <- ssd %>% select(common_col)
@@ -153,7 +175,7 @@ if (reload_new_20260706 == T){
                                             timepoint == 3 ~ 'extra'))
   df <- full_join(df,supplemental_data2,by=c('id','timepoint'))
   df$doi_m <- df$`DUP (months)`
-  df <- df %>% dplyr::select(id,doi_m,Cr_gamadj, region,group_level,timepoint,age,sex,POSSX,TOTAL,Remitter_Status,GMrat,GPC.Cr_gamadj,Glc.Cr_gamadj,Glu.Cr_gamadj,GPC.Cho.Cr_gamadj,GABA.Cr_gamadj,NAA.Cr_gamadj,mI.Cr_gamadj,Gln.Cr_gamadj,NAAG.Cr_gamadj,Glu.Gln.Cr_gamadj)
+  df <- df %>% dplyr::select(id,doi_m,Cr_gamadj, NAAG.SD,region,group_level,timepoint,age,sex,POSSX,TOTAL,Remitter_Status,GMrat,GPC.Cr_gamadj,Glc.Cr_gamadj,Glu.Cr_gamadj,GPC.Cho.Cr_gamadj,GABA.Cr_gamadj,NAA.Cr_gamadj,mI.Cr_gamadj,Gln.Cr_gamadj,NAAG.Cr_gamadj,Glu.Gln.Cr_gamadj)
   df <- df %>% mutate(roi = case_when(region == 'R Caudate' ~ 'R Caudate',
                                       region == 'right caudate' ~ 'R Caudate',
                                       region == 'L Caudate' ~ 'L Caudate',
@@ -453,6 +475,7 @@ if (reload_new == T){
                                                 sex == 2 ~ 'F')))
   
   ssd <- inner_join(ssd,sd,by='RECID')
+  
   
   common_cols <- intersect(colnames(hc),colnames(ssd))
   hc <- hc %>% select(all_of(common_cols))
@@ -4830,13 +4853,18 @@ if (pitt4ucdavis == TRUE){
   pitt_4_ucdavis <- df %>% 
     filter(group == 'HC' & timepoint == 'BL') %>% 
     group_by(hemi,region,sex) %>% 
-    summarize(N = n(), mGPC.Cho = mean(GPC.Cho,na.rm=TRUE), 
+    summarize(nGPC.Cho =  sum(!is.na(GPC.Cho)), nGABA = sum(!is.na(GABA)),
+              nGlu = sum(!is.na(Glu)), nNAA = sum(!is.na(NAA)),
+              nmI = sum(!is.na(mI)), nGlx = sum(!is.na(Glu.Gln)),
+              nTotal_including_Omitted = n(),
+              mGPC.Cho = mean(GPC.Cho,na.rm=TRUE), 
               sdGPC.Cho = sd(GPC.Cho,na.rm=TRUE), mGABA = mean(GABA,na.rm=TRUE), 
               sdGABA = sd(GABA,na.rm=TRUE), mGlu = mean(Glu,na.rm=TRUE), 
               sdGlu = sd(Glu,na.rm=TRUE), mNAA = mean(NAA,na.rm=TRUE), 
               sdNAA = sd(NAA,na.rm=TRUE), mmI = mean(mI,na.rm=TRUE), 
               sdmI = sd(mI,na.rm=TRUE), mGlx = mean(Glu.Gln,na.rm=TRUE), 
-              sdGlx = sd(Glu.Gln, na.rm=TRUE)) %>% 
+              sdGlx = sd(Glu.Gln, na.rm=TRUE), mAge = mean(age, na.rm=TRUE),
+              sdAge = sd(age,na.rm=TRUE)) %>% 
     ungroup()
   
   write.csv(pitt_4_ucdavis, file = '2026-09-03-MRSI-PittLunaLab-HC-Baseline-summary-statistics.csv')
