@@ -7,6 +7,12 @@
 # 2026-09-03 AndyP
 # added summary table for Richard Maddock MD (UCDavis) for meta analysis
 
+# 2026-09-04 AndyP
+# added remove_HC_mean_imputed_values.R
+# res_with_age.R mean-imputed values that were above CRLB or otherwise omitted, this re-removes them
+# res_with_age.R from collaborators: https://github.com/LabNeuroCogDevel/MRSI_gaba_glu/blob/main/res_with_age.R
+# added comments to reload version from published paper
+
 library(tidyverse)
 library(readxl)
 library(lmerTest)
@@ -18,6 +24,7 @@ library(ggrepel)
 library(ggsignif)
 
 reload_new_20260706 = T # 2026-07-06 reload after redoing gamadj models AndyP
+remove_HC_mean_imputed_values = T # 2026-09-04 res_with_age.R mean-imputed values that were above CRLB or otherwise omitted, this re-removes them
 nan_out_Crgamadj = F # 2026-07-13 AndyP.  Subsetting reload_new_20260706, nan-ning out Cr_gamadj where SD > 20, values are above the floor, and below 5 * mean values.
 # This results in Ca Glu N.S. on right side, might still be useful sensitivity analysis??
 reload_new = F # 2026-07-02 post redoing GM
@@ -27,7 +34,7 @@ reload_new = F # 2026-07-02 post redoing GM
 reload = F
 reload_check_GM = F
 longitudinal = F
-group = T
+group = F
 hilowdoi = F
 eibalance = F
 group_r_nr = F
@@ -42,9 +49,9 @@ Figure_3 = F
 Figure_4 = F
 corr_heatmap = F
 corr_heatmap_raw = F
-group_FU_supp = T
-plot_complex_group_effects = F # Glu.Gln in L thalamus and
-pitt4ucdavis <- F
+group_FU_supp = F
+plot_complex_group_effects = F # Glu.Gln in L thalamus 
+pitt4ucdavis <- T
 #The manuscript states that FDR correction was performed by accounting for metabolites within each ROI. 
 # However, the statistical inference and biological interpretation are made across three ROIs. 
 # Please state exactly which p-values were included in each FDR correction family. 
@@ -81,25 +88,29 @@ if (reload_new_20260706 == T){
   
   
   # 2026-09-03 AndyP
-  hc$NAAG.Cr_gamadj[hc$NAAG.SD > 20] <- NA
-  hc$NAA.Cr_gamadj[hc$NAA.SD > 20] <- NA
-  hc$Glu.Gln.Cr_gamadj[hc$Glu.Gln.Cr_gamadj > 20] <- NA
-  hc$NAA.NAAG.Cr_gamadj[hc$NAA.NAAG.SD > 20] <- NA
-  hc$GPC.Cho.Cr_gamadj[hc$GPC.Cho.SD > 20] <- NA
-  hc$mI.Cr_gamadj[hc$mI.SD > 20] <- NA
-  hc$GSH.Cr_gamadj[hc$GSH.SD > 20] <- NA
-  hc$GPC.Cr_gamadj[hc$GPC.SD > 20] <- NA
-  hc$Glu.Cr_gamadj[hc$Glu.SD > 20] <- NA
-  hc$Gln.Cr_gamadj[hc$Gln.SD > 20] <- NA
-  hc$GABA.Cr_gamadj[hc$GABA.SD > 20] <- NA
-  hc$Cho.Cr_gamadj[hc$Cho.SD > 20] <- NA
-  
+  # This removes the mean imputed data from the HC that was omitted due to high CRLB
+  if (remove_HC_mean_imputed_values==TRUE){
+    hc$NAAG.Cr_gamadj[hc$NAAG.SD > 20] <- NA
+    hc$NAA.Cr_gamadj[hc$NAA.SD > 20] <- NA
+    hc$Glu.Gln.Cr_gamadj[hc$Glu.Gln.Cr_gamadj > 20] <- NA
+    hc$NAA.NAAG.Cr_gamadj[hc$NAA.NAAG.SD > 20] <- NA
+    hc$GPC.Cho.Cr_gamadj[hc$GPC.Cho.SD > 20] <- NA
+    hc$mI.Cr_gamadj[hc$mI.SD > 20] <- NA
+    hc$GSH.Cr_gamadj[hc$GSH.SD > 20] <- NA
+    hc$GPC.Cr_gamadj[hc$GPC.SD > 20] <- NA
+    hc$Glu.Cr_gamadj[hc$Glu.SD > 20] <- NA
+    hc$Gln.Cr_gamadj[hc$Gln.SD > 20] <- NA
+    hc$GABA.Cr_gamadj[hc$GABA.SD > 20] <- NA
+    hc$Cho.Cr_gamadj[hc$Cho.SD > 20] <- NA
+  }
   gc()
   load('20260706-SSD-gamadj.Rdata') # loads sz_met_out
   ssd <- sz_met_out %>% group_by(RECID,timepoint,region,metabolite) %>% slice(1) %>% ungroup()
   rm(sz_met_out)
   
   # 2026-07-19 remove mI R Thalamus, add new model from 2026-07-19
+  # This was necessary as the predict() GAM model for the mI in R Thalamus was giving negative metabolite values.
+  # We tracked down this behavior to nonlinear effects near the edge of fits for any variable.
   ssd <- ssd %>% filter(!(metabolite == 'mI.Cr_gamadj' & region == 'R Thalamus'))
   load('20260719-SSD-gamadj.Rdata')
   ssdmILT <- sz_met_out %>% select(!orig_value)  %>% group_by(RECID,timepoint,region,metabolite) %>% slice(1) %>% ungroup()
@@ -119,25 +130,28 @@ if (reload_new_20260706 == T){
   ssd <- inner_join(ssd,sd,by='RECID')
   
   # get GMrat
-  # note that Mike used 
-  
+  # Note: Samira and Will redid GM ratio calculations using the warping method instead of directly from LCModel 
+  # 2026-07-06 to harmonize the HC method with the 7T and 7TPro GM ratio methods.
   ssdgm <- read_excel('sarpal_mrsi_original_07062026.xlsx') %>% select(RECID,timepoint,region,GMrat) %>% group_by(RECID,timepoint,region) %>% slice(1) %>% ungroup()
   ssdgm <- ssdgm %>% mutate(region = case_when(region == 'R Caudate' ~ 'R Caudate',
-                                                 region == 'right caudate' ~ 'R Caudate',
-                                                 region == 'L Caudate' ~ 'L Caudate',
-                                                 region == 'left caudate' ~ 'L Caudate',
-                                                 region == 'R Thalamus' ~ 'R Thalamus',
-                                                 region == 'right thalamus' ~ 'R Thalamus',
-                                                 region == 'L Thalamus' ~ 'L Thalamus',
-                                                 region == 'left thalamus' ~ 'L Thalamus'))
+                                               region == 'right caudate' ~ 'R Caudate',
+                                               region == 'L Caudate' ~ 'L Caudate',
+                                               region == 'left caudate' ~ 'L Caudate',
+                                               region == 'R Thalamus' ~ 'R Thalamus',
+                                               region == 'right thalamus' ~ 'R Thalamus',
+                                               region == 'L Thalamus' ~ 'L Thalamus',
+                                               region == 'left thalamus' ~ 'L Thalamus'))
   
   ssd <- inner_join(ssd,ssdgm,by=c('RECID','timepoint','region'))
   
   ssd <- ssd %>% rename(id = RECID)
   hc <- hc %>% rename(region = label)
   hc <- hc %>% mutate("DUP (months)"  = NA)
+  
+  # 2026-09-04 AndyP, never got around to this, would be good to for the next paper
   # to check, add SD values, check that results hold when covarying for CRLB, can also check FD
   
+  # add group Healthy Control (HC) or Schizophrenia Spectrum Disorder (SZ)
   ssd <- ssd %>% mutate(group_level = 'SZ')
   hc <- hc %>% mutate(group_level = 'HC')
   
@@ -145,37 +159,47 @@ if (reload_new_20260706 == T){
   # Testing SD/CRLB values were removed from hc dataset
   ssd <- ssd %>% mutate(NAAG.SD = NA)
   
+  # Intersect the HC data with the SSD data to create a dataframe to work from (df)
   common_col <- intersect(colnames(hc),colnames(ssd))
   hc <- hc %>% select(common_col)
   ssd <- ssd %>% select(common_col)
-  
   df <- rbind(ssd,hc)
   
   ############################
   #add in remitter status from outside spreadsheet
+  # We used a somewhat unique 3-item definition for remitter status, addressed in R2R
   supplemental_data2 <- read_excel('BPRS_items_MIKE.xlsx')
-  supplemental_data2 <- supplemental_data2 %>% filter(Timepoint != 0)
+  supplemental_data2 <- supplemental_data2 %>% filter(Timepoint != 0) # Remitter status is defined as BPRS at Follow Up timepoint, Timepoint of 0 is Baseline.
   supplemental_data2 <- supplemental_data2 %>%
     mutate(Remitter_Status = ifelse(CONCDIS4 <= 3 & HALL12 <= 3 & UTC15 <= 3, "R", "NR"), timepoint = Timepoint)
   supplemental_data2 <- supplemental_data2 %>% select(RECID,POSSX, TOTAL,Remitter_Status, timepoint)
+  # Adding Baseline BPRS Timpoint
   supplemental_dataBL <- read_excel('BPRS_items_MIKE.xlsx')
   supplemental_dataBL <- supplemental_dataBL %>% filter(Timepoint == 0) %>% mutate(timepoint = Timepoint, Remitter_Status = NA)
   supplemental_dataBL <- supplemental_dataBL %>% select(RECID, POSSX,TOTAL,timepoint,Remitter_Status)
+  # Add Remitter status/Follow Up to Baseline BPRS
   supplemental_data2 <- rbind(supplemental_data2, supplemental_dataBL)
-  supplemental_data2 <- supplemental_data2 %>% group_by(RECID) %>% tidyr::fill(Remitter_Status, .direction = "downup") %>% ungroup() %>% mutate(timepoint = case_when(timepoint == 0 ~ 1,
-                                                                                                                                                                      timepoint > 0 ~ 2))
+  supplemental_data2 <- supplemental_data2 %>% group_by(RECID) %>% 
+    tidyr::fill(Remitter_Status, .direction = "downup") %>% ungroup() %>% 
+    mutate(timepoint = case_when(timepoint == 0 ~ 1, # timepoint == 0 is Baseline
+                                 timepoint > 0 ~ 2)) # timepoint > 0 is Follow Up
   # sarpal_data_BLFU <- sarpal_data_BLFU %>% 
   #   mutate(Remitter_Status = supplemental_data2$Remitter_Status[match(RECID,supplemental_data2$RECID)])
   supplemental_data2$RECID <- as.character(supplemental_data2$RECID)
   supplemental_data2 <- supplemental_data2 %>% mutate(timepoint = case_when(timepoint == 1 ~ 'BL',
                                                                             timepoint == 2 ~ 'FU')) %>% rename(id = RECID)
   
+  # 2027-09-04 AndyP
+  # The HC data had longitudinal timepoints, hence this approach
+  # Probably should have removed age < 18 before assigning timepoints to simplify wrangling pipeline.
+  # This is handled later in timepoint1 anyway below.
   df <- df %>% mutate(timepoint = case_when(timepoint == 1 ~ 'BL',
                                             timepoint == 2 ~ 'FU',
                                             timepoint == 3 ~ 'extra'))
-  df <- full_join(df,supplemental_data2,by=c('id','timepoint'))
-  df$doi_m <- df$`DUP (months)`
+  df <- full_join(df,supplemental_data2,by=c('id','timepoint')) # need full join here to include timepoint == 3
+  df$doi_m <- df$`DUP (months)` # duration of presentation renamed as DOI (duration of illness)
   df <- df %>% dplyr::select(id,doi_m,Cr_gamadj, NAAG.SD,region,group_level,timepoint,age,sex,POSSX,TOTAL,Remitter_Status,GMrat,GPC.Cr_gamadj,Glc.Cr_gamadj,Glu.Cr_gamadj,GPC.Cho.Cr_gamadj,GABA.Cr_gamadj,NAA.Cr_gamadj,mI.Cr_gamadj,Gln.Cr_gamadj,NAAG.Cr_gamadj,Glu.Gln.Cr_gamadj)
+  # HC and SSD groups data frames had different naming conventions for regions, this harmonizes them
   df <- df %>% mutate(roi = case_when(region == 'R Caudate' ~ 'R Caudate',
                                       region == 'right caudate' ~ 'R Caudate',
                                       region == 'L Caudate' ~ 'L Caudate',
@@ -184,7 +208,7 @@ if (reload_new_20260706 == T){
                                       region == 'right thalamus' ~ 'R Thalamus',
                                       region == 'L Thalamus' ~ 'L Thalamus',
                                       region == 'left thalamus' ~ 'L Thalamus'))
-  df <- df %>% dplyr::mutate(hemi = str_sub(roi, 1,1),roi = str_sub(roi, 3, -1))
+  df <- df %>% dplyr::mutate(hemi = str_sub(roi, 1,1),roi = str_sub(roi, 3, -1)) # This pulls out the hemisphere from the region string and stores it as a separate variable hemi
   
   
   # this sheet has NaN that were manually removed by Mike.  These NaN's need to be re-inserted into the GAM model outputs, which seems to have interpolated over the NaNs
@@ -205,6 +229,7 @@ if (reload_new_20260706 == T){
   
   ssdna <- ssdna %>% arrange(RECID,timepoint,region)
   
+  # Algorithm to reinsert NaNs into SSD dataset
   na_indices_GABA <- which(is.na(as.numeric(ssdna$`GABA/Cre`)), arr.ind = TRUE)
   na_indices_Glu <- which(is.na(as.numeric(ssdna$`Glu/Cre`)), arr.ind = TRUE)  
   na_indices_Gln <- which(is.na(as.numeric(ssdna$`Gln/Cre`)), arr.ind = TRUE)
@@ -215,7 +240,8 @@ if (reload_new_20260706 == T){
   na_indices_NAAG <- which(is.na(as.numeric(ssdna$`NAAG/Cre`)), arr.ind = TRUE)
   na_indices_GPC <- which(is.na(as.numeric(ssdna$`GPC/Cre`)), arr.ind = TRUE)
   na_indices_GPC.Cho <- which(is.na(as.numeric(ssdna$`GPC.Cho/Cre`)), arr.ind = TRUE)
-
+  
+  # split dataset to re-insert NaNs
   dfssd <- df %>% filter(group_level == 'SZ') %>% arrange(id,timepoint,roi)
   dfhc <- df %>% filter(group_level == 'HC')
   
@@ -229,7 +255,6 @@ if (reload_new_20260706 == T){
   dfssd$GPC.Cr_gamadj[na_indices_GPC] = NA
   dfssd$GPC.Cho.Cr_gamadj[na_indices_GPC.Cho] = NA
   # testing 2/3 rule (2/3 of data is NA => exclude metabolite)
-  
   df <- rbind(dfssd,dfhc)
   
   test_in <- df %>% 
@@ -246,7 +271,7 @@ if (reload_new_20260706 == T){
     mutate(across(
       contains("gamadj"), 
       ~ case_when(
-        mean(is.na(.)) >= 1/3 ~ NA,
+        mean(is.na(.)) >= 1/3 ~ NA, # sum of NaN is >= 1/3 (so data is <= 2/3)
         TRUE ~ . 
       )
     )) %>% 
@@ -263,14 +288,12 @@ if (reload_new_20260706 == T){
   
   df <- df %>% dplyr::rename(id = 'id',GPC = 'GPC.Cr_gamadj',Glu = 'Glu.Cr_gamadj',GPC.Cho = 'GPC.Cho.Cr_gamadj',Glc = 'Glc.Cr_gamadj',GABA = 'GABA.Cr_gamadj',NAA = 'NAA.Cr_gamadj',mI = 'mI.Cr_gamadj',Gln = 'Gln.Cr_gamadj',NAAG = 'NAAG.Cr_gamadj',Glu.Gln = 'Glu.Gln.Cr_gamadj')
   
+  # Use only adults (only affects HC dataset)
+  # Re-wrangle timepoint BL/FU.
   df <- df %>% filter(age >= 18)
-  
   df <- df %>% group_by(id,roi,hemi) %>% mutate(nsess = 1:n()) %>%
     ungroup()
-  
   df$timepoint <- as.numeric(df$timepoint)
-  
-  
   # 11725, 11810 use extra
   df <- df %>% group_by(id) %>% arrange(nsess) %>% 
     mutate(timepoint1 = case_when(nsess == 1 ~ 'BL',
@@ -280,18 +303,20 @@ if (reload_new_20260706 == T){
   df <- df %>% filter(timepoint1 != 'discard') %>%
     select(!timepoint) %>% rename(timepoint = timepoint1)
   
-  # this should not reduce the dataframe any further
+  # AndyP this should not reduce the dataframe any further, passed sanity check (circa 07-2026)
   #df <- df %>% group_by(id,timepoint,roi,hemi) %>% slice(1) %>% ungroup()
   
-  df$timepoint <- relevel(factor(df$timepoint), ref = "BL")
-  df$sex <- relevel(factor(df$sex),ref = "F")
-  df <- df %>% mutate(age_sc = scale(age))
+  df$timepoint <- relevel(factor(df$timepoint), ref = "BL") # set baseline as reference for factor
+  df$sex <- relevel(factor(df$sex),ref = "F") # set female for reference for factor
+  df <- df %>% mutate(age_sc = scale(age)) # scale age for MLM predictor
   
+  # Three level group status with HC as reference group  
   df <- df %>% mutate(group = case_when(group_level == 'HC' ~ 'HC',
                                         Remitter_Status == 'NR' ~ 'NR',
                                         Remitter_Status == 'R' ~ 'R'))
-
-  df$group <- relevel(factor(df$group), ref = "HC")
+  df$group <- relevel(factor(df$group), ref = "HC") # Use HC as reference
+  
+  # For the exploratory longitudinal analysis, create a 5 factor (group by time variable)
   df <- df %>%
     mutate(
       # Combine Group and Time into 3 valid conditions
@@ -304,17 +329,18 @@ if (reload_new_20260706 == T){
       ),
       condition = factor(condition, levels = c("HC_BL", "NR_BL", "R_BL", "NR_FU","R_FU"))
     )
-  
-  df$condition <- relevel(df$condition, ref = "HC_BL")
+  df$condition <- relevel(df$condition, ref = "HC_BL") # Set healthy control baseline as the reference condition
   
   df$group_level <- relevel(as.factor(df$group_level),'HC')
-  df0 <- df %>% group_by(id) %>% slice(1) %>% ungroup()
-  mDOI <- median(df0$doi_m[df0$group_level == 'SZ'],na.rm=TRUE)
+  df0 <- df %>% group_by(id) %>% slice(1) %>% ungroup() # This is just for summary demographic stats later
+  mDOI <- median(df0$doi_m[df0$group_level == 'SZ'],na.rm=TRUE) # This just computes the median DOI for the SSD group to do a median split
+  # Perform a median split on the SSD group based on duration of illness
   df <- df %>% mutate(median_split_doi = case_when(doi_m >= mDOI ~ 'high',
                                                    doi_m < mDOI ~ 'low')
   )
-  df$median_split_doi[df$id == "2695"] = 'low'
+  df$median_split_doi[df$id == "2695"] = 'low' # not sure why this one didn't get assigned above?
   
+  # At one point we were experimenting with NaN'ing out outliers but we decided not to
   # df <- df %>% mutate(Glu = case_when(Glu < 5*mean(Glu,na.rm=T) ~ Glu,
   #                                     Glu >= 5*mean(Glu,na.rm=T) ~ NA))
   # df <- df %>% mutate(NAAG = case_when(NAAG <5*mean(NAAG,na.rm=T) ~ NAAG,
@@ -327,6 +353,9 @@ if (reload_new_20260706 == T){
   #                                      Glu.Gln >= 5*mean(Glu.Gln,na.rm=T) ~ NA))
   
   
+  # We discovered during the review process that there were group differences in Cre.
+  # Because this was after the GM ratio was harmonized across groups, it became necessary to check the
+  # original Cre values from the original submission.
   dg <- read_csv('13MP20200207_LCMv2fixidx_Raw.csv')
   dg <- dg %>% separate_wider_delim(cols = ld8,delim="_",names=c("id","dateNumeric"),cols_remove=FALSE)
   dg$dateNumeric <- as.numeric(dg$dateNumeric)
@@ -346,7 +375,8 @@ if (reload_new_20260706 == T){
     mutate(hemi = ifelse(hemi=='L', 'L', ifelse(hemi=='R', 'R', NA))) %>% # Fixed here
     mutate(region = paste0(hemi,' ', roi))
   dg <- dg %>% select(id,roi,hemi,timepoint,Cr, Cr.SD)
-
+  
+  # This was one of the final checks we did when we saw that some mI values were being adjusted below zero.
   load('20260715-Checking_mI_negative.Rdata')
   Ta <- T %>% select(id,timepoint,`mI/Cre`,roi.x,hemi)
   rm(T)
@@ -355,6 +385,7 @@ if (reload_new_20260706 == T){
   
   df <- left_join(df, Ta,by=c('id','timepoint','roi','hemi'))
   
+  # These were the original healthy controls, we grab Cre from them as well here to check after GM ratio was redone and group difference was discovered.
   dfohc <- read_csv('13MP20200207_LCMv2fixidx_Raw.csv')
   dfohc <- dfohc %>% separate_wider_delim(cols = ld8,delim="_",names=c("id","dateNumeric"),cols_remove=FALSE)
   dfohc$dateNumeric <- as.numeric(dfohc$dateNumeric)
@@ -384,83 +415,93 @@ if (reload_new_20260706 == T){
   
   
   df <- left_join(df,dfohc,by=c('id','timepoint','roi','hemi'))
+  # Checking mIorig (The originally reported mI values in Left Caudate) where we had a significant effect become a near-significant trend.
   df <- df %>%
     mutate(mIorig = case_when(!is.na(mI.Cr) ~ mI.Cr,
                               !is.na(`mI/Cre`) ~ `mI/Cre`))
+  
+  # This was an incorrect approach to dealing with the negative mI values.
   # df$mI[df$mI <= 0] = NA
   # df$NAAG[df$NAAG <= 0] = NA
   
   df <- df %>% select(!Glc) # No Glc data in SSD
+  # This is just for group summary statistics, note the N=n() counts NaN and NA values.  In this case, should be OK since there is no sparsity.
   df0 <- df %>% group_by(group_level,id) %>% slice(1) %>% ungroup() %>% group_by(group_level) %>% summarize(mA = mean(age, na.rm=TRUE), sA = sd(age,na.rm=TRUE), N= n(), mDOI = mean(doi_m,na.rm=T), sDOI = sd(doi_m,na.rm=T)) %>% ungroup()
   dfbprs <- df %>% filter(group_level == 'SZ') %>% group_by(id,timepoint) %>% slice(1) %>% ungroup() %>% group_by(timepoint) %>% summarize(mbprs = mean(POSSX,na.rm=TRUE), sbprs = sd(POSSX,na.rm=TRUE),mTbprs = mean(TOTAL,na.rm=TRUE), sTbprs = sd(TOTAL,na.rm=TRUE)) %>% ungroup()
   
+  # Testing sex difference with chi-squared test
   df2 <- df %>% group_by(group_level,id) %>% slice(1) %>% ungroup()
   df1 <- df2 %>% select(group_level,sex) %>% mutate(sex = case_when(sex == 'M' ~ 1, sex == 'F' ~ 2), group_level = case_when(group_level == 'HC' ~ 1, group_level == 'SZ' ~ 2))
   counts_table <- table(df1$group_level, df1$sex)
   st <- chisq.test(counts_table)
   
+  # Testing age difference with Wilcoxon sign test
   wt <- wilcox.test(df2$age[df2$group_level=='HC'],df2$age[df2$group_level=='SZ'])
-if (nan_out_Crgamadj==T){  
+  
+  # This was a test to see what happens if the denominator Cre is NaN'ed out when
+  # It exceeds > 20 on CRLB.  This resulted in a lot of sparsity, so we decided not to
+  # use.  It might be wise to check results hold with this sensitivity analysis in next paper.
+  if (nan_out_Crgamadj==T){  
     
-  hc_mike <- read_excel('13MP20200207_LCMv2fixidx_Mike.xlsx') %>% separate_wider_delim(cols = RECID, delim = "_", names = c('id','date'))
-  #rm(met_out1)
-  #Load SZ MRSI data
-  szmet_orig <- readxl::read_xlsx('sarpal_mrsi_original_07062026.xlsx', sheet = 1) %>%
-    rename(scan_date = Scan_date) %>% mutate(source = 'orig')
-  #szmet_orig <- szmet_orig %>% group_by(RECID) %>% separate_wider_delim(cols = region, delim = " ",names = c('hemisphere','roi'), cols_remove = TRUE,too_few = "align_start") %>% ungroup()
-  szmet_orig <- szmet_orig %>% rename(roi = 'region')
-  # Load SZ MRSI data
-  szmet_orig <- readxl::read_xlsx('sarpal_mrsi_original_07062026.xlsx', sheet = 1) %>%
-    rename(scan_date = Scan_date) %>% mutate(source = 'orig')
-  #szmet_orig <- szmet_orig %>% group_by(RECID) %>% separate_wider_delim(cols = region, delim = " ",names = c('hemisphere','roi'), cols_remove = TRUE,too_few = "align_start") %>% ungroup()
-  szmet_orig <- szmet_orig %>% rename(roi = 'region') %>% mutate(timepoint = case_when(timepoint == 1 ~ 'BL',
-                                                                                       timepoint == 2 ~ 'FU'))
-
-
-  # Match ROI names, create date value
-  szmet_new <- szmet_orig %>%
-    separate(roi, c('hemi','roi'), ' ', convert=TRUE) %>%
-    mutate(roi = ifelse(roi == 'caudate', 'Caudate', roi)) %>%
-    mutate(roi = ifelse(roi == 'thalamus', 'Thalamus', roi)) %>%
-    mutate(dateNumeric = as.numeric(as.POSIXct(scan_date, format="%Y-%m-%d")),
-           hemi = ifelse(hemi=='left', 'L', ifelse(hemi=='right', 'R', NA))) %>%
-    mutate(region = paste0(hemi,' ', roi))
-
-  # Match ROI names, create date value
-  szmet_new <- szmet_orig %>%
-    separate(roi, c('hemi','roi'), ' ', convert=TRUE) %>%
-    mutate(roi = ifelse(roi == 'caudate', 'Caudate', roi)) %>%
-    mutate(roi = ifelse(roi == 'thalamus', 'Thalamus', roi)) %>%
-    mutate(dateNumeric = as.numeric(as.POSIXct(scan_date, format="%Y-%m-%d")),
-           hemi = ifelse(hemi=='left', 'L', ifelse(hemi=='right', 'R', NA))) %>%
-    mutate(region = paste0(hemi,' ', roi))
-
-  szmet_new <- szmet_new %>% select(RECID,timepoint,roi,hemi,Cre,`Cre %SD`)
-  szmet_new <- szmet_new %>% rename(id = RECID, Cr = Cre, Cr.SD = `Cre %SD`)
-  szmet_new$id <- as.character(szmet_new$id)
-  szmet_new <- szmet_new %>% mutate(Cr = case_when(Cr.SD > 20 | Cr < 0.01 | Cr > 5*sd(Cr,na.rm=T) ~ NA_real_, TRUE ~ Cr))
-
-  df <- df %>% filter((group_level == 'HC' & timepoint == 'BL') | group_level == 'SZ')
-
-
-  dg <- rbind(dg,szmet_new)
-  df <- left_join(df,dg,by=c('id','timepoint','roi','hemi'))
-
-  df <- df %>% mutate(Cr_gamadj = case_when(Cr.SD > 20 | Cr < 0.01 | Cr > 5*sd(Cr,na.rm=T) ~ NA_real_, TRUE ~ Cr))
-
-  na_indices_Cr <- which(is.na(as.numeric(df$Cr_gamadj)), arr.ind = TRUE)
-
-  df$GABA[na_indices_Cr] = NA
-  df$Glu[na_indices_Cr] = NA
-  df$Gln[na_indices_Cr] = NA
-  df$Glc[na_indices_Cr] = NA
-  df$mI[na_indices_Cr] = NA
-  df$NAA[na_indices_Cr] = NA
-  df$Glu.Gln[na_indices_Cr] = NA
-  df$GPC[na_indices_Cr] = NA
-  df$GPC.Cho[na_indices_Cr] = NA
-}
- 
+    hc_mike <- read_excel('13MP20200207_LCMv2fixidx_Mike.xlsx') %>% separate_wider_delim(cols = RECID, delim = "_", names = c('id','date'))
+    #rm(met_out1)
+    #Load SZ MRSI data
+    szmet_orig <- readxl::read_xlsx('sarpal_mrsi_original_07062026.xlsx', sheet = 1) %>%
+      rename(scan_date = Scan_date) %>% mutate(source = 'orig')
+    #szmet_orig <- szmet_orig %>% group_by(RECID) %>% separate_wider_delim(cols = region, delim = " ",names = c('hemisphere','roi'), cols_remove = TRUE,too_few = "align_start") %>% ungroup()
+    szmet_orig <- szmet_orig %>% rename(roi = 'region')
+    # Load SZ MRSI data
+    szmet_orig <- readxl::read_xlsx('sarpal_mrsi_original_07062026.xlsx', sheet = 1) %>%
+      rename(scan_date = Scan_date) %>% mutate(source = 'orig')
+    #szmet_orig <- szmet_orig %>% group_by(RECID) %>% separate_wider_delim(cols = region, delim = " ",names = c('hemisphere','roi'), cols_remove = TRUE,too_few = "align_start") %>% ungroup()
+    szmet_orig <- szmet_orig %>% rename(roi = 'region') %>% mutate(timepoint = case_when(timepoint == 1 ~ 'BL',
+                                                                                         timepoint == 2 ~ 'FU'))
+    
+    
+    # Match ROI names, create date value
+    szmet_new <- szmet_orig %>%
+      separate(roi, c('hemi','roi'), ' ', convert=TRUE) %>%
+      mutate(roi = ifelse(roi == 'caudate', 'Caudate', roi)) %>%
+      mutate(roi = ifelse(roi == 'thalamus', 'Thalamus', roi)) %>%
+      mutate(dateNumeric = as.numeric(as.POSIXct(scan_date, format="%Y-%m-%d")),
+             hemi = ifelse(hemi=='left', 'L', ifelse(hemi=='right', 'R', NA))) %>%
+      mutate(region = paste0(hemi,' ', roi))
+    
+    # Match ROI names, create date value
+    szmet_new <- szmet_orig %>%
+      separate(roi, c('hemi','roi'), ' ', convert=TRUE) %>%
+      mutate(roi = ifelse(roi == 'caudate', 'Caudate', roi)) %>%
+      mutate(roi = ifelse(roi == 'thalamus', 'Thalamus', roi)) %>%
+      mutate(dateNumeric = as.numeric(as.POSIXct(scan_date, format="%Y-%m-%d")),
+             hemi = ifelse(hemi=='left', 'L', ifelse(hemi=='right', 'R', NA))) %>%
+      mutate(region = paste0(hemi,' ', roi))
+    
+    szmet_new <- szmet_new %>% select(RECID,timepoint,roi,hemi,Cre,`Cre %SD`)
+    szmet_new <- szmet_new %>% rename(id = RECID, Cr = Cre, Cr.SD = `Cre %SD`)
+    szmet_new$id <- as.character(szmet_new$id)
+    szmet_new <- szmet_new %>% mutate(Cr = case_when(Cr.SD > 20 | Cr < 0.01 | Cr > 5*sd(Cr,na.rm=T) ~ NA_real_, TRUE ~ Cr))
+    
+    df <- df %>% filter((group_level == 'HC' & timepoint == 'BL') | group_level == 'SZ')
+    
+    
+    dg <- rbind(dg,szmet_new)
+    df <- left_join(df,dg,by=c('id','timepoint','roi','hemi'))
+    
+    df <- df %>% mutate(Cr_gamadj = case_when(Cr.SD > 20 | Cr < 0.01 | Cr > 5*sd(Cr,na.rm=T) ~ NA_real_, TRUE ~ Cr))
+    
+    na_indices_Cr <- which(is.na(as.numeric(df$Cr_gamadj)), arr.ind = TRUE)
+    
+    df$GABA[na_indices_Cr] = NA
+    df$Glu[na_indices_Cr] = NA
+    df$Gln[na_indices_Cr] = NA
+    df$Glc[na_indices_Cr] = NA
+    df$mI[na_indices_Cr] = NA
+    df$NAA[na_indices_Cr] = NA
+    df$Glu.Gln[na_indices_Cr] = NA
+    df$GPC[na_indices_Cr] = NA
+    df$GPC.Cho[na_indices_Cr] = NA
+  }
+  
 }
 
 
@@ -578,7 +619,7 @@ if (reload_new == T){
                                               group_level == 'SZ' ~ Glu),
                       GMrat_mike = case_when(group_level == 'HC' ~ GMrat_mike,
                                              group_level == 'SZ' ~ GMrat))
-    
+  
 }
 
 if (reload_check_GM==T){
@@ -869,19 +910,19 @@ if (reload==T){
                                               group == 'NR' ~ 'SZ',
                                               group == 'R' ~ 'SZ',
                                               is.na(group) ~ 'SZ')
-                      )
+  )
   df$group_level <- relevel(as.factor(df$group_level),'HC')
   
   table <- df %>% group_by(roi,hemi,group_level,timepoint) %>% summarize(mgaba = mean(GABA,na.rm=TRUE), 
-                                                         sgaba = sd(GABA,na.rm=TRUE),
-                                                         mglu = mean(Glu, na.rm=TRUE),
-                                                         sglu = sd(Glu, na.rm=TRUE),
-                                                         mnaa = mean(NAA,na.rm=TRUE),
-                                                         snaa = sd(NAA,na.rm=TRUE),
-                                                         mmI = mean(mI,na.rm=TRUE),
-                                                         smI = sd(mI,na.rm=TRUE),
-                                                         mnaag = mean(NAAG,na.rm=TRUE),
-                                                         snaag = sd(NAAG,na.rm=TRUE)
+                                                                         sgaba = sd(GABA,na.rm=TRUE),
+                                                                         mglu = mean(Glu, na.rm=TRUE),
+                                                                         sglu = sd(Glu, na.rm=TRUE),
+                                                                         mnaa = mean(NAA,na.rm=TRUE),
+                                                                         snaa = sd(NAA,na.rm=TRUE),
+                                                                         mmI = mean(mI,na.rm=TRUE),
+                                                                         smI = sd(mI,na.rm=TRUE),
+                                                                         mnaag = mean(NAAG,na.rm=TRUE),
+                                                                         snaag = sd(NAAG,na.rm=TRUE)
   ) %>% ungroup() %>% arrange(group_level,hemi)
   
   
@@ -971,6 +1012,8 @@ if (reload==T){
   cre <- cre %>% arrange(id,timepoint,roi,hemi)
   
   
+  # Once we saw laterality effects, this is where we tried to test handedness, but the data was too sparse.
+  # It would be good to try to get this for next paper.
   # handedness
   hand <- data.frame(id = c("2207","2229","2245","2246","2276","2279","2292","2318","2326","2343","2346","2351","2358","2367","2379","2497","2578","2647","2690","2773","2824","2859"), hand = c('L','R','R','R','L','R','R','R','M','R','R','L','R',NA,NA,'R','R','R',NA,'R',NA,NA))
   
@@ -1046,7 +1089,7 @@ if (reload==T){
     geom_point(aes(x=GMrat_BL_R, y=GMrat_BL_L,color = group_level)) +
     geom_point(aes(x=GMrat_FU_R, y=GMrat_FU_L, color = 'follow-up')) + theme(aspect.ratio = 1) + xlab('Right GMrat') + ylab('Left GMrat') +
     geom_abline(intercept = 0, slope = 1)
-
+  
   ggplot(data=Ca, aes(label = id)) +
     geom_jitter(aes(x=SD_Cre_BL_R, y=SD_Cre_BL_L,color = group_level)) +
     geom_jitter(aes(x=SD_Cre_FU_R, y=SD_Cre_FU_R, color = 'follow-up')) +
@@ -1054,7 +1097,7 @@ if (reload==T){
     theme(aspect.ratio = 1) +
     xlab('Right SD Cre Caudate') + ylab('Left SD Cre Caudate') +
     geom_abline(intercept = 0, slope = 1)  + xlim(c(0,25)) + ylim(c(0,25))
-
+  
   ggplot(data=Ca,aes(label = id)) +
     geom_jitter(aes(x=SD_NAA_BL_R, y=SD_NAA_BL_L,color = group_level)) +
     geom_jitter(aes(x=SD_NAA_FU_R, y=SD_NAA_FU_R, color = 'follow-up')) +
@@ -1184,11 +1227,11 @@ if (longitudinal==T){
 ############################
 
 if (hilowdoi==T){
-
+  
   df <- df %>% mutate(doigr = case_when(group_level == 'HC' ~ 'HC',
                                         group_level == 'SZ' ~ median_split_doi))
   df$doigr <- relevel(as.factor(df$doigr),ref='HC')                      
-
+  
   # 2026-06-04 Will need to add hemi eventually
   ThGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), Glu ~ doigr*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
   ThGABA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), GABA ~ doigr*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
@@ -1201,8 +1244,8 @@ if (hilowdoi==T){
   #ThGpc <- tidy(lm(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), GPC ~ doigr*hemi + sex + scale(GMrat))) %>% mutate(metabolite = 'GPC')
   #ThCho <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Thalamus'), GPC.Cho ~ group*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GPC.Cho')
   Mth1 <- rbind(ThGlu,ThGABA,ThmI,ThGluGln,ThNAAG,ThNAA) %>% mutate(roi = 'Thalamus')
-
-
+  
+  
   CaGlu <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu ~ doigr*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
   CaGABA <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GABA ~ doigr*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
   CamI <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), mIorig ~ doigr*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'mI')
@@ -1214,12 +1257,12 @@ if (hilowdoi==T){
   CaGpc <- tidy(lm(data = df %>% filter(roi == 'Caudate'), GPC ~ doigr*hemi + sex + scale(GMrat))) %>% mutate(metabolite = 'GPC')
   CaCho <- tidy(lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), GPC.Cho ~ doigr*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GPC.Cho')
   Mca1 <- rbind(CaGlu,CaGABA,CamI,CaGluGln,CaNAA,CaGpc,CaCho) %>% mutate(roi = 'Caudate')
-
+  
   Mall_high_r <- rbind(Mth1,Mca1) %>% filter(term %in% c('doigrhigh:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% filter(pfdr < 0.05)
   Mall_high <- rbind(Mth1,Mca1) %>% filter(term %in% c('doigrhigh')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% filter(pfdr < 0.05)
   Mall_low_r <- rbind(Mth1,Mca1) %>% filter(term %in% c('doigrlow:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% filter(pfdr < 0.05)
   Mall_low <- rbind(Mth1,Mca1) %>% filter(term %in% c('doigrlow')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% filter(pfdr < 0.05)
-
+  
   df$Cr_gamadj1 <- scale(Winsorize(df$Cr_gamadj, val = quantile(df$Cr_gamadj,probs = c(0.05,0.95),na.rm=TRUE)))
   
   M <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'),  Glu ~ doigr*hemi + sex + scale(GMrat) + (1|id))
@@ -1327,7 +1370,7 @@ if (group==T){
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
-    
+  
   # examine emmeans
   MThGABA <- lmerTest::lmer(data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'), GABA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(MThGABA, ~ group_level | hemi, data = df %>% filter(roi == 'Thalamus' & timepoint == 'BL'))
@@ -1504,7 +1547,7 @@ if (group==T){
   ln_fitted <- log(fv[valid_indices])
   park_model <- lm(ln_res_sq ~ ln_fitted)
   summary(park_model)
-   
+  
   # examine emmeans
   MCaNAA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAA ~ group_level*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(MCaNAA, ~ group_level | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
@@ -1735,49 +1778,49 @@ if (eibalance){
   # 
   dfw <- df %>% pivot_wider(id_cols = id, names_from = c('group_level','roi','timepoint'), values_from = c('GMrat','Glu','GPC.Cho','GABA','NAA','mI','Gln','NAAG','Glu.Gln'))
   dfw <- as.data.frame(dfw)
-
+  
   a <- as.numeric(unlist(dfw$Glu_SZ_Caudate_BL))
   b <- as.numeric(unlist(dfw$GABA_SZ_Caudate_BL))
   c <- as.numeric(unlist(dfw$Glu_SZ_Caudate_FU))
   d <- as.numeric(unlist(dfw$GABA_SZ_Caudate_FU))
-
+  
   a1 <- a[!is.na(a) & !is.na(b)]
   b1 <- b[!is.na(a) & !is.na(b)]
   c1 <- c[!is.na(c) & !is.na(d)]
   d1 <- d[!is.na(c) & !is.na(d)]
-
+  
   hc <- data.frame()
-
+  
   dfw <- list(HC = data.frame(Glu_SZBL_Caudate = a1, GABA_SZBL_Caudate = b1),
               SZ = data.frame(Glu_SZ_Caudate = c1, GABA_SZ_Caudate = d1))
-
+  
   ccCa <- cocor(~Glu_SZBL_Caudate + GABA_SZBL_Caudate | Glu_SZ_Caudate + GABA_SZ_Caudate, dfw, alternative = 'two.sided')
-
-
+  
+  
   dfw <- df %>% pivot_wider(id_cols = id, names_from = c('group_level','roi','timepoint'), values_from = c('GMrat','Glu','GPC.Cho','GABA','NAA','mI','Gln','NAAG','Glu.Gln'))
   dfw <- as.data.frame(dfw)
-
+  
   a <- as.numeric(unlist(dfw$Glu_SZ_Thalamus_BL))
   b <- as.numeric(unlist(dfw$GABA_SZ_Thalamus_BL))
   c <- as.numeric(unlist(dfw$Glu_SZ_Thalamus_FU))
   d <- as.numeric(unlist(dfw$GABA_SZ_Thalamus_FU))
-
+  
   a1 <- a[!is.na(a) & !is.na(b)]
   b1 <- b[!is.na(a) & !is.na(b)]
   c1 <- c[!is.na(c) & !is.na(d)]
   d1 <- d[!is.na(c) & !is.na(d)]
-
+  
   hc <- data.frame()
-
+  
   dfw <- list(HC = data.frame(Glu_SZBL_Thalamus = a1, GABA_SZBL_Thalamus = b1),
               SZ = data.frame(Glu_SZ_Thalamus = c1, GABA_SZ_Thalamus = d1))
-
+  
   ccTh <- cocor(~Glu_SZBL_Thalamus + GABA_SZBL_Thalamus | Glu_SZ_Thalamus + GABA_SZ_Thalamus, dfw, alternative = 'two.sided')
-
-
-###################
-### Right #########
-###################
+  
+  
+  ###################
+  ### Right #########
+  ###################
   
   dfw <- df %>% pivot_wider(id_cols = id, names_from = c('group_level','roi','timepoint','hemi'), values_from = c('GMrat','Glu','GPC.Cho','GABA','NAA','mI','Gln','NAAG','Glu.Gln'))
   dfw <- as.data.frame(dfw)
@@ -2104,7 +2147,7 @@ if (group_r_nr==T){
   effsz <- eff_size(emm, sigma = sigma(CaGlu), edf = df.residual(MCaGlu))
   effsz <- broom.mixed::tidy(effsz) %>% select(contrast, estimate, hemi) %>% rename(effsz = estimate) 
   
-  Ca <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu.Gln ~ group*hemi + sex + scale(GMrat) + (1|id))
+  Ca <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAA ~ group*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(Ca, ~ group | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
@@ -2153,7 +2196,7 @@ if (group_r_nr==T){
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
-
+  
   CaGluGln <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu.Gln ~ group*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(CaGluGln, ~ group | hemi, data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'))
   # Convert to data frame
@@ -2171,13 +2214,13 @@ if (group_r_nr==T){
   # # Convert to data frame
   # emm_df <- as.data.frame(emm)
   # pairs(emm,adjust = "fdr")
- 
+  
   CaGlu <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), Glu ~ group*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(CaGlu, ~ group | hemi, data = df %>% filter(roi == 'Caudate'))
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
-   
+  
   CaNAA <- lmerTest::lmer(data = df %>% filter(roi == 'Caudate' & timepoint == 'BL'), NAA ~ group*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(CaNAA, ~ group | hemi, data = df %>% filter(roi == 'Caudate'))
   # Convert to data frame
@@ -2207,7 +2250,7 @@ if (clinical==T){
   sds <- sds %>% rename(id = RECID)
   sds$id <- as.character(sds$id)
   
-
+  
   dfc <- left_join(df,sds,by='id')
   
   
@@ -2226,16 +2269,16 @@ if (clinical==T){
   sds3$id <- as.character(sds3$id)
   
   dfc <- left_join(dfc, sds3, by=c('id','timepoint'))
-
+  
   dfc$timepoint <- relevel(factor(dfc$timepoint),ref = 'BL')
   dfc$group <- relevel(factor(dfc$Remitter_Status),ref = 'R')
   dfc$sex <- relevel(factor(dfc$sex.x),ref = "F")
   dfc$dup_mo <- dfc$`DUP (months)`
   
   dfc <- dfc %>% mutate(possx_sc = (POSSX.x), sev_sc = (Severity), imp_sc = (Improvement), 
-                      wm_sc = scale(`Working Memory`), mccb_sc = scale(`MCCB Overall`), vl_sc = scale(`Verbal Learning`),
-                      ps_sc = scale(`Processing Speed`),sct_sc = scale(`Strauss-Carpenter Total`),rpc_sc = scale(`Reasoning-Problem Solving`),
-                      sc_sc = scale(`Social Cognition`))
+                        wm_sc = scale(`Working Memory`), mccb_sc = scale(`MCCB Overall`), vl_sc = scale(`Verbal Learning`),
+                        ps_sc = scale(`Processing Speed`),sct_sc = scale(`Strauss-Carpenter Total`),rpc_sc = scale(`Reasoning-Problem Solving`),
+                        sc_sc = scale(`Social Cognition`))
   
   dfc <- dfc %>% dplyr::select(!`Working Memory` & !`Verbal Learning` & !`Strauss-Carpenter Total` & !`Processing Speed` & !`Reasoning-Problem Solving` & !`Social Cognition` & !`MCCB Overall`)
   dfrem <- dfc %>% dplyr::select(id,sex,timepoint,doi_m,wm_sc,possx_sc,sev_sc,imp_sc,mccb_sc,vl_sc,sc_sc,ps_sc,sct_sc,rpc_sc)
@@ -2246,13 +2289,13 @@ if (clinical==T){
                             dimp = (imp_sc_FU - imp_sc_BL))
   ddfc <- dfc %>% pivot_wider(id_cols = c('id','roi','hemi','sex'), names_from = 'timepoint', values_from = c('GMrat','Glu','Glu','GPC.Cho','GABA','NAA','mI','Gln','NAAG','Glu.Gln'),values_fill = 0)
   ddfc <- ddfc %>% mutate(dGlu = Glu_FU - Glu_BL,
-                      dGPC.Cho = GPC.Cho_FU - GPC.Cho_BL,
-                      dGABA = GABA_FU - GABA_BL,
-                      dNAA = NAA_FU - NAA_BL,
-                      dmI = mI_FU - mI_BL,
-                      dGln = Gln_FU - Gln_BL,
-                      dNAAG = NAAG_FU - NAAG_BL,
-                      dGlu.Gln = Glu.Gln_FU - Glu.Gln_BL)
+                          dGPC.Cho = GPC.Cho_FU - GPC.Cho_BL,
+                          dGABA = GABA_FU - GABA_BL,
+                          dNAA = NAA_FU - NAA_BL,
+                          dmI = mI_FU - mI_BL,
+                          dGln = Gln_FU - Gln_BL,
+                          dNAAG = NAAG_FU - NAAG_BL,
+                          dGlu.Gln = Glu.Gln_FU - Glu.Gln_BL)
   dfrem <- dfrem %>% dplyr::select(!sex)
   ddfc <- inner_join(ddfc,dfrem,by=c('id'))
   
@@ -2261,11 +2304,11 @@ if (clinical==T){
   
   #df1 <- df #%>% filter(doi_yr >= median(doi_yr,na.rm=TRUE))
   dfc <- dfc %>% ungroup() %>% mutate(doi_group = case_when(doi_m >= median(doi_m,na.rm=TRUE) ~ 'high',
-                                              doi_m < median(doi_m,na.rm=TRUE) ~ 'low',
-                                              group_level == 'HC' ~ 'HC'))
+                                                            doi_m < median(doi_m,na.rm=TRUE) ~ 'low',
+                                                            group_level == 'HC' ~ 'HC'))
   dfc$doi_group <- relevel(as.factor(dfc$doi_group),ref='HC')
   
-  dfc$curr_var <- dfc$imp_sc
+  dfc$curr_var <- dfc$doi_group
   
   ThGlu <- tidy(lmerTest::lmer(data = dfc %>% filter(roi == 'Thalamus'), Glu ~ curr_var*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'Glu')
   ThGABA <- tidy(lmerTest::lmer(data = dfc %>% filter(roi == 'Thalamus'), GABA ~ curr_var*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GABA')
@@ -2290,13 +2333,13 @@ if (clinical==T){
   CaGpc <- tidy(lm(data = dfc %>% filter(roi == 'Caudate'), GPC ~ curr_var*hemi + sex + scale(GMrat))) %>% mutate(metabolite = 'GPC')
   CaCho <- tidy(lmerTest::lmer(data = dfc %>% filter(roi == 'Caudate'), GPC.Cho ~ curr_var*hemi + sex + scale(GMrat) + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'GPC.Cho')
   Mca <- rbind(CaGlu,CaGABA,CamI,CaGluGln,CaNAAG,CaNAA,CaGpc,CaCho) %>% mutate(roi = 'Caudate')
-
+  
   Mall <- rbind(Mth,Mca) %>% filter(term %in% c('curr_var')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% filter(pfdr < 0.05)
   Mall_r <- rbind(Mth,Mca) %>% filter(term %in% c('curr_var:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% filter(pfdr < 0.05)
-
+  
   
   # examine emmeans
-  M <- lmerTest::lmer(data = dfc %>% filter(roi == 'Caudate'), mI ~ curr_var*hemi + sex + scale(GMrat) + (1|id))
+  M <- lmerTest::lmer(data = dfc %>% filter(roi == 'Caudate'), GABA ~ curr_var*hemi + sex + scale(GMrat) + (1|id))
   emm <- emmeans(M, ~ curr_var | hemi, data = dfc %>% filter(roi == 'Caudate'))
   pairs(emm,adjust = "fdr")
   
@@ -2934,8 +2977,8 @@ if (Creatine_Check){
   dg <- dg %>% mutate(Cr = case_when(Cr.SD > 20 | Cr < 0.01 | Cr > 5*sd(Cr,na.rm=T) ~ NA_real_, TRUE ~ Cr))
   dg <- dg %>% filter(age >= 18) %>%
     filter(label %in% c('L Thalamus','R Thalamus','L Caudate','R Caudate')) %>% 
-                        group_by(id,label) %>% mutate(nsess = 1:n()) %>%
-             filter(nsess == 1) %>% mutate(timepoint = 'BL')
+    group_by(id,label) %>% mutate(nsess = 1:n()) %>%
+    filter(nsess == 1) %>% mutate(timepoint = 'BL')
   
   # Match ROI names, create date value
   dg <- dg %>% 
@@ -2945,7 +2988,7 @@ if (Creatine_Check){
     mutate(hemi = ifelse(hemi=='L', 'L', ifelse(hemi=='R', 'R', NA))) %>% # Fixed here
     mutate(region = paste0(hemi,' ', roi))
   dg <- dg %>% select(id,roi,hemi,timepoint,Cr, Cr.SD)
-                      
+  
   # hc_mike <- read_excel('13MP20200207_LCMv2fixidx_Mike.xlsx') %>% separate_wider_delim(cols = RECID, delim = "_", names = c('id','date'))
   # #rm(met_out1)
   # Load SZ MRSI data
@@ -2958,17 +3001,17 @@ if (Creatine_Check){
     rename(scan_date = Scan_date) %>% mutate(source = 'orig')
   #szmet_orig <- szmet_orig %>% group_by(RECID) %>% separate_wider_delim(cols = region, delim = " ",names = c('hemisphere','roi'), cols_remove = TRUE,too_few = "align_start") %>% ungroup()
   szmet_orig <- szmet_orig %>% rename(roi = 'region') %>% mutate(timepoint = case_when(timepoint == 1 ~ 'BL',
-                                                                                     timepoint == 2 ~ 'FU'))
-
-
+                                                                                       timepoint == 2 ~ 'FU'))
+  
+  
   # Match ROI names, create date value
   szmet_new <- szmet_orig %>% 
     separate(roi, c('hemi','roi'), ' ', convert=TRUE) %>%
     mutate(roi = ifelse(roi == 'caudate', 'Caudate', roi)) %>%
     mutate(roi = ifelse(roi == 'thalamus', 'Thalamus', roi)) %>%
     mutate(dateNumeric = as.numeric(as.POSIXct(scan_date, format="%Y-%m-%d")),
-         hemi = ifelse(hemi=='left', 'L', ifelse(hemi=='right', 'R', NA))) %>%
-         mutate(region = paste0(hemi,' ', roi))
+           hemi = ifelse(hemi=='left', 'L', ifelse(hemi=='right', 'R', NA))) %>%
+    mutate(region = paste0(hemi,' ', roi))
   
   # Match ROI names, create date value
   szmet_new <- szmet_orig %>% 
@@ -3097,8 +3140,8 @@ if (Creatine_Check){
           axis.title.y = element_text(size = 16),
           strip.text.x = element_text(size = 16)) + 
     stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
-    print(gg1)
-    dev.off()
+  print(gg1)
+  dev.off()
   
   ##################
   ## Caudate GABA ##
@@ -3241,9 +3284,9 @@ if (Creatine_Check){
           axis.title.y = element_text(size = 16),
           strip.text.x = element_text(size = 16)) + 
     stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
-    print(gg1)
-    dev.off()
-    
+  print(gg1)
+  dev.off()
+  
   #######################
   ## Caudate GPC.Cho ####
   #######################
@@ -3283,7 +3326,7 @@ if (Creatine_Check){
   # Convert to data frame
   emm_df <- as.data.frame(emm)
   pairs(emm,adjust = "fdr")
-
+  
   pdf('Figure_S2A_Caudate_mI.pdf',height=5,width=6)  
   emm_df$Group <- emm_df$group_level
   pvals <- data.frame(hemi = "L", group1 = c("HC"), group2 = c("SZ"), p.signif = c("N.S."), y.position = 1.33)
@@ -3381,11 +3424,11 @@ if (Creatine_Check){
           axis.title.x = element_text(size = 16),
           axis.title.y = element_text(size = 16),
           strip.text.x = element_text(size = 16)) #+ 
-   # stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
+  # stat_pvalue_manual(pvals, label = "p.signif", y.position = "y.position",size=12, bracket.size = 1.2)
   print(gg1)
   dev.off()
   
- 
+  
   
   
   df$Group <- df$group_level
@@ -3394,11 +3437,11 @@ if (Creatine_Check){
     geom_boxplot(color = "black",outlier.shape = NA,notch = T,linewidth = 0.75, fill = NA,fatten = 1) +
     theme_minimal() + facet_grid(roi~hemi) + ylim(c(0,1000)) + ylab('Cr') +  
     theme(axis.text.y = element_text(size = 14),
-                                axis.text.x = element_text(size = 14),
-                                legend.text = element_text(size = 14),
-                                legend.title = element_text(size = 16),
-                                axis.title.x = element_text(size = 16),
-                                axis.title.y = element_text(size = 16))
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16))
   print(gg1)
   dev.off()
   
@@ -3481,7 +3524,7 @@ if (Ref2mI==T){
   ThNAAG <- tidy(lmerTest::lmer(data = df1, NAAG ~ group_level*hemi+ sex + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAAG')
   ThNAA <- tidy(lmerTest::lmer(data = df1, NAA ~ group_level*hemi + sex + (1|id))) %>% dplyr::select(!df & !group & !effect) %>% mutate(metabolite = 'NAA')
   Mth1 <- rbind(ThGlu,ThGABA,ThmI,ThGluGln,ThNAAG,ThNAA) %>% mutate(roi = 'Thalamus')
-
+  
   Mall_R_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ:hemiR')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
   Mall_SZ <- rbind(Mth1) %>% filter(term %in% c('group_levelSZ')) %>% mutate(pfdr = p.adjust(p.value,method = 'fdr',n=length(p.value))) %>% arrange(roi,pfdr)
   
@@ -3629,11 +3672,11 @@ if (Ref2mI==T){
 
 if (NoRef==T){
   df1 <- df %>% mutate(Glu = Glu*Cr_gamadj,
-                      GABA = GABA*Cr_gamadj,
-                      mI = mI*Cr_gamadj,
-                      Glu.Gln = Glu.Gln*Cr_gamadj,
-                      NAAG = NAAG*Cr_gamadj,
-                      NAA = NAA*Cr_gamadj)
+                       GABA = GABA*Cr_gamadj,
+                       mI = mI*Cr_gamadj,
+                       Glu.Gln = Glu.Gln*Cr_gamadj,
+                       NAAG = NAAG*Cr_gamadj,
+                       NAA = NAA*Cr_gamadj)
   df1 <- df1 %>% ungroup()
   df1 = df1 %>% filter(roi == 'Thalamus' & timepoint == 'BL')
   
@@ -4046,7 +4089,7 @@ if (Figure_3){
 if (Figure_4){
   secondary_mets <- c('GPC','NAAG','GPC.Cho','mI','NAA')
   primary_mets <- c('Glu','GABA','Glu.Gln')
-
+  
   
   dodge_width = 0.8
   df <- df %>% select(id,group_level,GMrat,GPC,Glu,GPC.Cho,GABA,NAA,mI,Gln,NAAG,Glu.Gln,roi,hemi,timepoint,doigr)
@@ -4237,11 +4280,11 @@ if (corr_heatmap ==T){
   
   pdf('Figure_SX_Correlation_Matrix_HC_Caudate.pdf',height=5,width=5)
   gg1 <- ggcorrplot(cm_hc_ca, lab = TRUE, hc.order = TRUE, 
-             hc.method = "complete",type = "lower",
-             p.mat = p_matrix_cm_hc_ca,
-             sig.level = 0.05,
-             insig = "blank",
-             lab_size = 4, title = 'Bilateral Caudate HC') + theme_minimal()
+                    hc.method = "complete",type = "lower",
+                    p.mat = p_matrix_cm_hc_ca,
+                    sig.level = 0.05,
+                    insig = "blank",
+                    lab_size = 4, title = 'Bilateral Caudate HC') + theme_minimal()
   gg1 <- gg1 + theme(
     panel.background = element_blank(),
     panel.grid.major = element_blank(),
@@ -4251,11 +4294,11 @@ if (corr_heatmap ==T){
   
   pdf('Figure_SX_Correlation_Matrix_SZ_Caudate.pdf',height=5,width=5)  
   gg1 <- ggcorrplot(cm_sz_ca, lab = TRUE, hc.order = TRUE, 
-             hc.method = "complete",type = "lower",
-             p.mat = p_matrix_cm_sz_ca,
-             sig.level = 0.05,
-             insig = "blank",
-             lab_size = 4, title = 'Bilateral Caudate SSD') + theme_minimal()
+                    hc.method = "complete",type = "lower",
+                    p.mat = p_matrix_cm_sz_ca,
+                    sig.level = 0.05,
+                    insig = "blank",
+                    lab_size = 4, title = 'Bilateral Caudate SSD') + theme_minimal()
   gg1 <- gg1 + theme(
     panel.background = element_blank(),
     panel.grid.major = element_blank(),
@@ -4264,11 +4307,11 @@ if (corr_heatmap ==T){
   dev.off()
   pdf('Figure_SX_Correlation_Matrix_HC_Thalamus.pdf',height=5,width=5) 
   gg1 <- ggcorrplot(cm_hc_th, lab = TRUE, hc.order = TRUE, 
-             hc.method = "complete",type = "lower",
-             p.mat = p_matrix_cm_hc_th,
-             sig.level = 0.05,
-             insig = "blank",
-             lab_size = 4, title = 'Bilateral Thalamus HC') + theme_minimal()
+                    hc.method = "complete",type = "lower",
+                    p.mat = p_matrix_cm_hc_th,
+                    sig.level = 0.05,
+                    insig = "blank",
+                    lab_size = 4, title = 'Bilateral Thalamus HC') + theme_minimal()
   gg1 <- gg1 + theme(
     panel.background = element_blank(),
     panel.grid.major = element_blank(),
@@ -4277,18 +4320,18 @@ if (corr_heatmap ==T){
   dev.off()
   pdf('Figure_SX_Correlation_Matrix_SZ_Thalamus.pdf',height=5,width=5) 
   gg1 <- ggcorrplot(cm_sz_th, lab = TRUE, hc.order = TRUE, 
-             hc.method = "complete",type = "lower",
-             p.mat = p_matrix_cm_sz_th,
-             sig.level = 0.05,
-             insig = "blank",
-             lab_size = 4, title = 'Bilateral Thalamus SSD') + theme_minimal()
+                    hc.method = "complete",type = "lower",
+                    p.mat = p_matrix_cm_sz_th,
+                    sig.level = 0.05,
+                    insig = "blank",
+                    lab_size = 4, title = 'Bilateral Thalamus SSD') + theme_minimal()
   gg1 <- gg1 + theme(
     panel.background = element_blank(),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank())
   print(gg1)
   dev.off()
- 
+  
   df$Group <- df$group_level
   pdf('Supplemental_XA_Glu_vs_GABA_Thalamus.pdf',height = 4,width=6)
   gg1 <- ggplot(data = df %>% filter(timepoint == 'BL' & roi == 'Thalamus'), aes(x=GABA, y=Glu,color= Group,group=Group)) + 
@@ -4324,12 +4367,12 @@ if (corr_heatmap_raw ==T){
     summarize(across(where(is.numeric), \(x) mean(x, na.rm=TRUE))) %>%
     ungroup()
   dfc <- dfc %>% mutate(Glu = Glu*Cr_gamadj,
-                       GABA = GABA*Cr_gamadj,
-                       mI = mI*Cr_gamadj,
-                       Glu.Gln = Glu.Gln*Cr_gamadj,
-                       NAAG = NAAG*Cr_gamadj,
-                       NAA = NAA*Cr_gamadj,
-                       GPC.Cho = GPC.Cho*Cr_gamadj)
+                        GABA = GABA*Cr_gamadj,
+                        mI = mI*Cr_gamadj,
+                        Glu.Gln = Glu.Gln*Cr_gamadj,
+                        NAAG = NAAG*Cr_gamadj,
+                        NAA = NAA*Cr_gamadj,
+                        GPC.Cho = GPC.Cho*Cr_gamadj)
   dfc_hc_ca <- dfc %>% filter(group_level == 'HC' & roi == 'Caudate')
   dfc_dz_ca <- dfc %>% filter(group_level == 'SZ' & roi == 'Caudate')
   dfc_hc_th <- dfc %>% filter(group_level == 'HC' & roi == 'Thalamus')
@@ -4374,7 +4417,7 @@ if (corr_heatmap_raw ==T){
   
   pdf('Figure_SXX_Correlation_Matrix_HC_Caudate.pdf',height=5,width=5)
   gg1 <- ggcorrplot(cm_hc_ca, lab = TRUE, 
-                
+                    
                     p.mat = p_matrix_cm_hc_ca,
                     sig.level = 0.05,
                     insig = "blank",
@@ -4799,7 +4842,7 @@ if (plot_complex_group_effects==T){
   
   
   dfLmi <- dfL %>% filter((name == 'mIorig' | name == 'mI') & timepoint == 'BL' & hemi == 'R' & roi == 'Thalamus') %>% mutate(DataType = case_when(name == 'mIorig' ~ 'LCModel output',
-                                             name == 'mI' ~ 'GAM transformed output'))
+                                                                                                                                                   name == 'mI' ~ 'GAM transformed output'))
   
   dfLmi$DataType <- relevel(as.factor(dfLmi$DataType),ref = 'LCModel output')
   dfLmi <- dfLmi %>% mutate(x_base = case_when(DataType == 'LCModel output' ~ 0,

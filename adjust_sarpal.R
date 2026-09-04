@@ -26,6 +26,8 @@ load('20260719-gamadj-HC.Rdata')
 
 
 # Load SZ MRSI data
+# Note: Samira and Will redid GM ratio calculations using the warping method instead of directly from LCModel 
+# 2026-07-06 to harmonize the HC method with the 7T and 7TPro GM ratio methods.
 szmet_orig <- readxl::read_xlsx('sarpal_mrsi_original_07062026.xlsx', sheet = 1) %>%
   rename(scan_date = Scan_date) %>% mutate(source = 'orig')
 #szmet_orig <- szmet_orig %>% group_by(RECID) %>% separate_wider_delim(cols = region, delim = " ",names = c('hemisphere','roi'), cols_remove = TRUE,too_few = "align_start") %>% ungroup()
