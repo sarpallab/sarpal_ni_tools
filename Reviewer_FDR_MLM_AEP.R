@@ -24,7 +24,7 @@ library(ggrepel)
 library(ggsignif)
 
 reload_new_20260706 = T # 2026-07-06 reload after redoing gamadj models AndyP
-remove_HC_mean_imputed_values = T # 2026-09-04 res_with_age.R mean-imputed values that were above CRLB or otherwise omitted, this re-removes them
+remove_HC_mean_imputed_values = F # 2026-09-04 res_with_age.R mean-imputed values that were above CRLB or otherwise omitted, this re-removes them
 nan_out_Crgamadj = F # 2026-07-13 AndyP.  Subsetting reload_new_20260706, nan-ning out Cr_gamadj where SD > 20, values are above the floor, and below 5 * mean values.
 # This results in Ca Glu N.S. on right side, might still be useful sensitivity analysis??
 reload_new = F # 2026-07-02 post redoing GM
@@ -4910,5 +4910,13 @@ if (pitt4ucdavis == TRUE){
               sdAge = sd(age,na.rm=TRUE)) %>% 
     ungroup()
   
-  write.csv(pitt_4_ucdavis, file = '2026-09-03-MRSI-PittLunaLab-HC-Baseline-summary-statistics.csv')
+  write.csv(pitt_4_ucdavis, file = 'test.csv')
+  #write.csv(pitt_4_ucdavis, file = '2026-09-03-MRSI-PittLunaLab-HC-Baseline-summary-statistics.csv')
 }
+
+
+# pitt_4_ucdavis <- read_csv('test.csv')
+# imputed <- pitt_4_ucdavis
+# omitted <- read_csv('2026-09-03-MRSI-PittLunaLab-HC-Baseline-summary-statistics.csv')
+# 
+# A <- omitted$nGABA - imputed$nGABA
