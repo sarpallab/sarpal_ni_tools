@@ -4,8 +4,8 @@
 library(tidyverse)
 library(stringr)
 
-df <- read.csv('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Data/MARS/directories.csv',header=FALSE)
-
+#df <- read.csv('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Data/MARS/directories.csv',header=FALSE)
+df <- read.csv('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Data/MARS/2026-11-03-MARS-scans.csv',header = FALSE)
 # Split into 3 distinct columns
 df_split <- df %>%
   separate_wider_delim(V1, delim = "/", names = c("dir1", "dir2", "dir3","dir4","dir5","dir6","dir7","dir8","id","id_date","scans"),
@@ -45,10 +45,10 @@ dfsummary <- df_split %>%
     has_RISEAssociativeRecognition = any(str_detect(x, "RISEAssociativeRecognition"), na.rm = TRUE),
     
     # 4. "sL_dA_SUM"
-    has_sL_dA_SUM = any(str_detect(x, "sL_dA_SUM"), na.rm = TRUE),
+    has_sL_dA_SUM = any(str_detect(x, "_SUM"), na.rm = TRUE),
     
     # 5. "CPT5" or "CPT4"
-    has_CPT5_or_CPT4 = any(str_detect(x, "CPT5|CPT4"), na.rm = TRUE),
+    has_CPT5_or_CPT4 = any(str_detect(x, "CPT5|CPT4|AX-CPT"), na.rm = TRUE),
     
     # 6. "SpinEchoFieldMap_PA"
     has_SpinEchoFieldMap_PA = any(str_detect(x, "SpinEchoFieldMap_PA"), na.rm = TRUE),
@@ -65,17 +65,14 @@ dfsummary <- df_split %>%
     # 10. "rsfMRI" and "PhysioLog"
     has_rsfMRI_and_Physio = any(str_detect(x, "rsfMRI") & str_detect(x, "PhysioLog"), na.rm = TRUE),
     
-    # 11. "AX-CPT" and "PhysioLog"
-    has_AX_CPT_and_Physio = any(str_detect(x, "AX-CPT") & str_detect(x, "PhysioLog"), na.rm = TRUE),
-    
     # 12. ("CPT5" or "CPT4") and "PhysioLog"
-    has_CPT_and_Physio = any(str_detect(x, "CPT5|CPT4") & str_detect(x, "PhysioLog"), na.rm = TRUE),
+    has_CPT_and_Physio = any(str_detect(x, "CPT5|CPT4|AX-CPT") & str_detect(x, "PhysioLog"), na.rm = TRUE),
     
     # 13. "x_sL_dA"
-    has_x_sL_dA = any(str_detect(x, "x_sL_dA"), na.rm = TRUE),
+    has_x_sL_dA = any(str_detect(x, "_dA"), na.rm = TRUE),
     
     # 14. "x_sL_hp"
-    has_x_sL_hp = any(str_detect(x, "x_sL_hp"), na.rm = TRUE),
+    has_x_sL_hp = any(str_detect(x, "_hp"), na.rm = TRUE),
     
     # 15. "RISEImage"
     has_RISEImage = any(str_detect(x, "RISEImage"), na.rm = TRUE),
@@ -94,5 +91,5 @@ dfsummary <- df_split %>%
 
 
 setwd('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Data/MARS')
-write.csv(dfsummary, file = '2026-10-23-MARS-scan-inventory.csv')
-write.csv(df_split, file = '2026-10-23-MARS-scan-raw-folder-list.csv')
+write.csv(dfsummary, file = '2026-11-03-MARS-scan-inventory.csv')
+write.csv(df_split, file = '2026-11-03-MARS-scan-raw-folder-list.csv')
