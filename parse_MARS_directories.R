@@ -59,9 +59,6 @@ dfsummary <- df_split %>%
     # 8. "RISEAssociativeRecognition" and "PhysioLog"
     has_RISEAssociative_and_Physio = any(str_detect(x, "RISEAssociativeRecognition") & str_detect(x, "PhysioLog"), na.rm = TRUE),
     
-    # 9. "AX-CPT"
-    has_AX_CPT = any(str_detect(x, "AX-CPT"), na.rm = TRUE),
-    
     # 10. "rsfMRI" and "PhysioLog"
     has_rsfMRI_and_Physio = any(str_detect(x, "rsfMRI") & str_detect(x, "PhysioLog"), na.rm = TRUE),
     
@@ -93,3 +90,8 @@ dfsummary <- df_split %>%
 setwd('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Data/MARS')
 write.csv(dfsummary, file = '2026-11-03-MARS-scan-inventory.csv')
 write.csv(df_split, file = '2026-11-03-MARS-scan-raw-folder-list.csv')
+
+
+ddq <- data.frame(vals = colSums(!dfsummary[sapply(dfsummary, is.logical)], na.rm = TRUE))
+#dq <- ddq %>% pivot_longer(vals)
+#ddq <- ddq %>% mutate(names = colnames(dfsummary))
