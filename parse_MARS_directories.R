@@ -49,7 +49,7 @@ dfsummary <- df_split %>%
     has_sL_dA_SUM = any(str_detect(x, "_SUM"), na.rm = TRUE),
     
     # 5. "CPT5" or "CPT4"
-    has_CPT5_or_CPT4 = any(str_detect(x, "CPT5|CPT4"), na.rm = TRUE),
+    has_CPT5_or_CPT4 = any(str_detect(x, "CPT5|CPT4|AX-CPT"), na.rm = TRUE),
     
     # 6. "SpinEchoFieldMap_PA"
     has_SpinEchoFieldMap_PA = any(str_detect(x, "SpinEchoFieldMap_PA"), na.rm = TRUE),
@@ -60,17 +60,11 @@ dfsummary <- df_split %>%
     # 8. "RISEAssociativeRecognition" and "PhysioLog"
     has_RISEAssociative_and_Physio = any(str_detect(x, "RISEAssociativeRecognition") & str_detect(x, "PhysioLog"), na.rm = TRUE),
     
-    # 9. "AX-CPT"
-    has_AX_CPT = any(str_detect(x, "AX-CPT"), na.rm = TRUE),
-    
     # 10. "rsfMRI" and "PhysioLog"
     has_rsfMRI_and_Physio = any(str_detect(x, "rsfMRI") & str_detect(x, "PhysioLog"), na.rm = TRUE),
     
-    # 11. "AX-CPT" and "PhysioLog"
-    has_AX_CPT_and_Physio = any(str_detect(x, "AX-CPT") & str_detect(x, "PhysioLog"), na.rm = TRUE),
-    
     # 12. ("CPT5" or "CPT4") and "PhysioLog"
-    has_CPT_and_Physio = any(str_detect(x, "CPT5|CPT4") & str_detect(x, "PhysioLog"), na.rm = TRUE),
+    has_CPT_and_Physio = any(str_detect(x, "CPT5|CPT4|AX-CPT") & str_detect(x, "PhysioLog"), na.rm = TRUE),
     
     # 13. "x_sL_dA"
     has_x_sL_dA = any(str_detect(x, "_dA"), na.rm = TRUE),
@@ -97,3 +91,9 @@ dfsummary <- df_split %>%
 setwd('/Users/andrew/Library/CloudStorage/OneDrive-UniversityofPittsburgh/SARPALlab - Documents/Data/MARS')
 write.csv(dfsummary, file = '2026-11-03-MARS-scan-inventory.csv')
 write.csv(df_split, file = '2026-11-03-MARS-scan-raw-folder-list.csv')
+
+
+ddq <- data.frame(vals = colSums(!dfsummary[sapply(dfsummary, is.logical)], na.rm = TRUE))
+#dq <- ddq %>% pivot_longer(vals)
+#ddq <- ddq %>% mutate(names = colnames(dfsummary))
+
